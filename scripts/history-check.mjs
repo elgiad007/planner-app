@@ -14,7 +14,7 @@ try {
   const next = page.getByRole("button", { name: "Next spread" });
   const previous = page.getByRole("button", { name: "Previous spread" });
   async function draw(panel) {
-    const canvas = page.locator("canvas").nth(panel);
+    const canvas = page.locator("canvas:not(.highlighter-layer)").nth(panel);
     const rect = await canvas.boundingBox();
     for (const type of ["pointerdown", "pointerup"]) {
       await canvas.dispatchEvent(type, {

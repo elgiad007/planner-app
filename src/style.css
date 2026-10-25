@@ -440,6 +440,11 @@ main {
 .ink.browse {
   pointer-events: none;
 }
+.ink.highlighter-layer {
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
 .bottom {
   max-width: 1180px;
   margin: 8px auto 0;

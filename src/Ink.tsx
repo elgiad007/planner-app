@@ -34,6 +34,7 @@ export function Ink({
   onBusy: (b: boolean) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const highlights = useRef<HTMLCanvasElement>(null);
   const active = useRef<{
     id: number;
     type: string;
@@ -52,8 +53,7 @@ export function Ink({
   const callbacks = useRef({ onChange, onBusy });
   callbacks.current = { onChange, onBusy };
 
-  function context() {
-    const c = canvas.current;
+  function context(c = canvas.current) {
     const ctx = c?.getContext("2d");
     if (!c || !ctx) return null;
     ctx.setTransform(c.width / WIDTH, 0, 0, c.height / HEIGHT, 0, 0);
@@ -88,7 +88,8 @@ export function Ink({
   }
   function render() {
     const ctx = context();
-    if (!ctx) return;
+    const highlightCtx = context(highlights.current);
+    if (!ctx || !highlightCtx) return;
     const a = active.current;
     const list = a
       ? a.selecting
@@ -98,19 +99,27 @@ export function Ink({
           : [...a.original, a.stroke]
       : latest.current;
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    highlightCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    highlightCtx.globalAlpha = 0.65;
+    highlightCtx.globalCompositeOperation = "multiply";
     for (const s of list) {
       if (s.tool === "highlighter") {
-        ctx.globalAlpha = 0.28;
-        ctx.strokeStyle = ctx.fillStyle = s.color;
-        ctx.lineWidth = s.width;
-        ctx.beginPath();
+        highlightCtx.strokeStyle = highlightCtx.fillStyle = s.color;
+        highlightCtx.lineWidth = s.width;
+        highlightCtx.beginPath();
         if (s.points.length === 1) {
-          ctx.arc(s.points[0].x, s.points[0].y, s.width / 2, 0, Math.PI * 2);
-          ctx.fill();
+          highlightCtx.arc(
+            s.points[0].x,
+            s.points[0].y,
+            s.width / 2,
+            0,
+            Math.PI * 2,
+          );
+          highlightCtx.fill();
         } else {
-          ctx.moveTo(s.points[0].x, s.points[0].y);
-          for (const p of s.points.slice(1)) ctx.lineTo(p.x, p.y);
-          ctx.stroke();
+          highlightCtx.moveTo(s.points[0].x, s.points[0].y);
+          for (const p of s.points.slice(1)) highlightCtx.lineTo(p.x, p.y);
+          highlightCtx.stroke();
         }
       } else {
         segment(ctx, s, s.points[0]);
@@ -278,6 +287,11 @@ export function Ink({
         c.width = w;
         c.height = h;
       }
+      const highlightCanvas = highlights.current!;
+      if (highlightCanvas.width !== w || highlightCanvas.height !== h) {
+        highlightCanvas.width = w;
+        highlightCanvas.height = h;
+      }
       render();
     };
     const interrupted = () => finish();
@@ -372,24 +386,31 @@ export function Ink({
     }
   }
   return (
-    <canvas
-      ref={canvas}
-      className={"ink " + (!enabled ? "browse" : "")}
-      aria-label={
-        fingerWriting
-          ? "Handwriting surface: use a pen, mouse, or one finger"
-          : "Handwriting surface: use a pen or mouse; enable Finger writing for touch"
-      }
-      onPointerDown={down}
-      onLostPointerCapture={(e) => {
-        // Ignore delayed loss notifications if this pointer has already been recaptured.
-        if (
-          !e.currentTarget.hasPointerCapture(e.pointerId) &&
-          active.current?.type === e.pointerType
-        )
-          finish(e.pointerId, false);
-      }}
-      onContextMenu={(e) => e.preventDefault()}
-    />
+    <>
+      <canvas
+        ref={canvas}
+        className={"ink " + (!enabled ? "browse" : "")}
+        aria-label={
+          fingerWriting
+            ? "Handwriting surface: use a pen, mouse, or one finger"
+            : "Handwriting surface: use a pen or mouse; enable Finger writing for touch"
+        }
+        onPointerDown={down}
+        onLostPointerCapture={(e) => {
+          // Ignore delayed loss notifications if this pointer has already been recaptured.
+          if (
+            !e.currentTarget.hasPointerCapture(e.pointerId) &&
+            active.current?.type === e.pointerType
+          )
+            finish(e.pointerId, false);
+        }}
+        onContextMenu={(e) => e.preventDefault()}
+      />
+      <canvas
+        ref={highlights}
+        className="ink highlighter-layer"
+        aria-hidden="true"
+      />
+    </>
   );
 }

@@ -66,6 +66,51 @@ try {
   await button("Close pages").click();
   await button("Highlighter").click();
   await draw(100, 200, 180, 240);
+  const highlightLayer = page
+    .locator(".book > .page .highlighter-layer")
+    .first();
+  assert.equal(
+    await highlightLayer.evaluate((c) => getComputedStyle(c).mixBlendMode),
+    "multiply",
+  );
+  assert.equal(
+    await highlightLayer.evaluate((c) => getComputedStyle(c).pointerEvents),
+    "none",
+  );
+  const highlightAlpha = await highlightLayer.evaluate((c) => {
+    const data = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let max = 0;
+    for (let i = 3; i < data.length; i += 4) max = Math.max(max, data[i]);
+    return max;
+  });
+  assert.ok(
+    Math.abs(highlightAlpha - 0.65 * 255) < 2,
+    "highlight uses 65% opacity",
+  );
+  await button("Eraser").click();
+  await draw(140, 220, 140, 220);
+  assert.equal(
+    await highlightLayer.evaluate((c) =>
+      c
+        .getContext("2d")
+        .getImageData(0, 0, c.width, c.height)
+        .data.some((v) => v),
+    ),
+    false,
+    "erasing removes the highlighter bitmap",
+  );
+  await button("Undo").click();
+  await saved();
+  assert.equal(
+    await highlightLayer.evaluate((c) =>
+      c
+        .getContext("2d")
+        .getImageData(0, 0, c.width, c.height)
+        .data.some((v) => v),
+    ),
+    true,
+    "undo redraws the highlighter layer",
+  );
   await button("Pencil").click();
   await draw(260, 320, 300, 350);
   const before = await snapshot();

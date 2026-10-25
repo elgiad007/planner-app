@@ -242,7 +242,12 @@ try {
     await event("pointerup", 51);
   }
   await event("pointerdown");
-  await event("pointerdown", 60, {}, page.locator("canvas").nth(1));
+  await event(
+    "pointerdown",
+    60,
+    {},
+    page.locator("canvas:not(.highlighter-layer)").nth(1),
+  );
   await event("pointerup", 60);
   assert.equal(
     await next.isDisabled(),
