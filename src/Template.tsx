@@ -1,3 +1,4 @@
+import { holidayNames } from "./holidays";
 import {
   DAYS,
   MONTHS,
@@ -13,14 +14,23 @@ export function Template({
   side,
   onWeek,
   insert,
+  showHolidays = true,
 }: {
+  showHolidays?: boolean;
   insert?: CustomSpread;
   view: View;
   side: number;
   onWeek: (s: string) => void;
 }) {
   if (insert?.source)
-    return <Template view={insert.source} side={side} onWeek={onWeek} />;
+    return (
+      <Template
+        view={insert.source}
+        side={side}
+        onWeek={onWeek}
+        showHolidays={showHolidays}
+      />
+    );
   if (insert)
     return (
       <div className="template custom-template">
@@ -129,6 +139,13 @@ export function Template({
                         {parseDate(date).getUTCDate()}
                       </button>
                     )}
+                    {col < 7 && showHolidays && (
+                      <div className="holiday-label">
+                        {holidayNames(date).map((name) => (
+                          <div key={name}>{name}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -184,6 +201,13 @@ export function Template({
                 {MONTHS[parseDate(addDays(start, n)).getUTCMonth()].slice(0, 3)}
               </small>
             </h2>
+            {showHolidays && (
+              <div className="holiday-label">
+                {holidayNames(addDays(start, n)).map((name) => (
+                  <div key={name}>{name}</div>
+                ))}
+              </div>
+            )}
             <div className="writing-lines" />
           </section>
         ))}

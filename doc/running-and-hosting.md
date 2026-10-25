@@ -2,6 +2,12 @@
 
 ## Local development
 
+On Windows, double-click `start-test-server.cmd` in the repository root. It starts a local development server at http://127.0.0.1:5173 and opens your default browser. Save source changes to see them refresh automatically. Keep the window open while testing; press Ctrl+C to stop the server. Nothing is uploaded or deployed, and local planner data is separate from the live site's data.
+
+The launcher works from any working directory. It uses Node.js from PATH, falling back to Codex's bundled runtime, and requires installed dependencies. Errors remain visible in the launcher window. It applies its PowerShell execution-policy override only to that process.
+
+For a different port or to skip opening the browser, run `start-test-server.cmd -Port 5174 -NoOpen`. The server binds only to this computer and fails clearly if the selected port is occupied. Keep the same address and port to reuse the same local planner data. Development mode is for testing changes; use the production preview below for service-worker/offline testing.
+
 Install a supported Node.js LTS version (22.12+ or 24+) and pnpm 11. Use the repository folder:
 
 ```sh

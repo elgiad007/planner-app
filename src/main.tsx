@@ -1,7 +1,11 @@
 import { createRoot } from "react-dom/client";
+import { APP_VERSION } from "./version";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SaveQueue } from "./saveQueue";
+import { SpreadViewport } from "./SpreadViewport";
+import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
+import { SHORTCUTS, TOOL_KEYS } from "./shortcuts";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
@@ -64,20 +68,18 @@ function App() {
     [tool, setTool] = useState<
       "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select"
     >("pen"),
-    [organize, setOrganize] = useState(false),
     [insertType, setInsertType] = useState<Insert>("lined"),
     [insertTitle, setInsertTitle] = useState(""),
     [position, setPosition] = useState<"before" | "after">("after"),
     [movePosition, setMovePosition] = useState<"before" | "after">("after"),
     [moveTarget, setMoveTarget] = useState(""),
-    [expanded, setExpanded] = useState(true),
+    [expanded, setExpanded] = useState(() => window.innerWidth > 700),
     [help, setHelp] = useState(false),
     [online, setOnline] = useState(navigator.onLine),
     [operation, setOperation] = useState(false),
     [busy, setBusy] = useState(false),
     [update, setUpdate] = useState<ServiceWorkerRegistration | null>(null);
-  const [pdfPanel, setPdfPanel] = useState(false),
-    [pdfScope, setPdfScope] = useState<"current" | "binder">("current"),
+  const [pdfScope, setPdfScope] = useState<"current" | "binder">("current"),
     [pdfProgress, setPdfProgress] = useState(""),
     [pdfFile, setPdfFile] = useState<{ url: string; name: string } | null>(
       null,
@@ -120,7 +122,14 @@ function App() {
         `Could not save: ${String(e)}. Keep the app open. Download a backup or retry.`,
       );
     });
-  const book = useWritingGuard(tool !== "browse" && !operation && ready);
+  const [hand, setHand] = useState(false);
+  const [spacePan, setSpacePan] = useState(false);
+  const [selectionReset, setSelectionReset] = useState(0);
+  const dateInput = useRef<HTMLInputElement>(null);
+  const [zoom, setZoom] = useState(100);
+  const book = useWritingGuard(
+    !hand && !spacePan && tool !== "browse" && !operation && ready,
+  );
   const history = useRef<{ past: Page[]; future: Page[] }>({
     past: [],
     future: [],
@@ -335,7 +344,7 @@ function App() {
       format: "my-pastel-planner",
       schemaVersion: 2,
       layoutVersion: 1,
-      appVersion: "0.4.0",
+      appVersion: APP_VERSION,
       exportedAt: new Date().toISOString(),
       pages: Object.values(pagesRef.current),
       settings: settingsRef.current,
@@ -593,6 +602,124 @@ function App() {
       worker.postMessage("ACTIVATE");
     });
   }
+  useEffect(() => {
+    const release = () => setSpacePan(false);
+    const keyup = (e: KeyboardEvent) => {
+      if (e.code === "Space") release();
+    };
+    const visibility = () => {
+      if (document.hidden) release();
+    };
+    window.addEventListener("keyup", keyup);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.removeEventListener("keyup", keyup);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, []);
+  useEffect(() => {
+    if (!help) return;
+    setSpacePan(false);
+    const previous = document.activeElement;
+    document
+      .querySelectorAll<HTMLElement>("[popover]:popover-open")
+      .forEach((panel) => panel.hidePopover());
+    document.querySelector<HTMLElement>(".help")?.focus();
+    return () => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    };
+  }, [help]);
+  useEffect(() => {
+    const keydown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || !ready || fatal) return;
+      if (help) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setHelp(false);
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          document.querySelector<HTMLButtonElement>(".help button")?.focus();
+        }
+        return;
+      }
+      const target = e.target instanceof Element ? e.target : null;
+      if (e.key === "Escape") {
+        const popover = document.querySelector<HTMLElement>(
+          "[popover]:popover-open",
+        );
+        if (popover) {
+          e.preventDefault();
+          popover.hidePopover();
+          return;
+        }
+      }
+      // Preserve text editing, native form controls, and browser/OS shortcuts.
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+        )
+      )
+        return;
+      if (lock()) return;
+      const key = e.key.toLowerCase();
+      if (e.altKey) return;
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "z" || key === "y") {
+          e.preventDefault();
+          if (!e.repeat) undo(key === "y" || e.shiftKey);
+        }
+        return;
+      }
+      if (e.key === " " && !target?.closest("button, a, [role='button']")) {
+        e.preventDefault();
+        setSpacePan(true);
+        return;
+      }
+      const actions: Record<string, () => void> = {
+        arrowleft: () => turnPage(-1),
+        arrowright: () => turnPage(1),
+        t: today,
+        home: () => navigate(initialView),
+        m: () => navigate({ mode: "month", date: view.date }),
+        w: () => navigate({ mode: "week", date: view.date }),
+        g: () => {
+          const input = dateInput.current;
+          input?.closest<HTMLElement>("[popover]")?.showPopover();
+          input?.focus();
+        },
+        "+": () => setZoom((z) => Math.min(250, z + 25)),
+        "=": () => setZoom((z) => Math.min(250, z + 25)),
+        "-": () => setZoom((z) => Math.max(100, z - 25)),
+        "0": () => setZoom(100),
+        "[": () =>
+          tool === "highlighter"
+            ? setHighlighterWidth((w) => Math.max(12, w - 2))
+            : setInkWidth((w) => Math.max(1, w - 0.5)),
+        "]": () =>
+          tool === "highlighter"
+            ? setHighlighterWidth((w) => Math.min(48, w + 2))
+            : setInkWidth((w) => Math.min(6, w + 0.5)),
+        escape: () => setSelectionReset((n) => n + 1),
+        "?": () => setHelp(true),
+      };
+      const selectedTool = TOOL_KEYS[key];
+      const action = selectedTool
+        ? () => {
+            setHand(false);
+            setTool(selectedTool);
+          }
+        : actions[key];
+      if (!action || (e.shiftKey && !["?", "+"].includes(e.key))) return;
+      e.preventDefault();
+      if (!e.repeat) action();
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  });
   if (fatal)
     return (
       <main className="opening">
@@ -641,274 +768,410 @@ function App() {
   const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
   const bookmarked = settings.bookmarks?.includes(spreadId(view));
   return (
-    <main>
-      <nav className="topbar" aria-label="Planner navigation">
-        <div className="brand">
-          <span className="brand-mark">✿</span>
-          <span>
-            My Pastel Planner<small>A little room for your day</small>
-          </span>
+    <main className="planner-shell">
+      <aside className="right-dock dock" aria-label="Planner options">
+        <div
+          className="dock-brand"
+          title="My Pastel Planner"
+          aria-label="My Pastel Planner"
+        >
+          ✿
         </div>
-        <div className="nav-controls">
-          <button disabled={locked} onClick={() => navigate(initialView)}>
-            Home
-          </button>
-          <button disabled={locked} onClick={today}>
-            Today
-          </button>
-          <div className="segmented">
-            {(["month", "week"] as const).map((mode) => (
-              <button
-                key={mode}
-                disabled={locked}
-                className={view.mode === mode ? "selected" : ""}
-                onClick={() => navigate({ mode, date: view.date })}
-              >
-                {mode === "month" ? "Month" : "Week"}
-              </button>
-            ))}
-          </div>
-          <input
-            aria-label="Jump to date"
-            type="date"
-            min="1900-01-01"
-            max="2200-12-31"
-            value={view.date}
-            disabled={locked}
-            onChange={(e) => {
-              if (validDate(e.target.value))
-                navigate({ mode: view.mode, date: e.target.value });
-            }}
-          />
-          <button
-            disabled={locked}
-            onClick={() => setOrganize(!organize)}
-            aria-expanded={organize}
-          >
-            Pages &amp; bookmarks
-          </button>
-          <button
-            disabled={locked}
-            onClick={() => setHelp(true)}
-            aria-label="Help and installation"
-          >
-            ?
-          </button>
-        </div>
-      </nav>
-      {organize && (
-        <section className="organizer" aria-label="Pages and bookmarks">
-          <header className="organizer-header">
-            <div>
-              <h2>Pages &amp; bookmarks</h2>
-              <p>
-                A spread is two facing pages. Add pages, organize your planner,
-                or jump to a favorite.
-              </p>
-            </div>
-            <button disabled={locked} onClick={() => setOrganize(false)}>
-              Close pages
+        <DockMenu label="Navigate" icon="▦" disabled={locked}>
+          <nav className="nav-controls" aria-label="Planner navigation">
+            <button
+              title="Home (Home)"
+              disabled={locked}
+              onClick={() => navigate(initialView)}
+            >
+              Home
             </button>
-          </header>
-          <div className="organizer-grid">
-            <section className="organizer-card">
-              <h3>Add pages</h3>
-              <p>Add a new two-page spread beside the one you’re viewing.</p>
-              <div className="organizer-controls">
-                <label>
-                  Paper style{" "}
-                  <select
-                    aria-label="Insert paper"
+            <button title="Today (T)" disabled={locked} onClick={today}>
+              Today
+            </button>
+            <div className="segmented">
+              {(["month", "week"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  title={mode === "month" ? "Month (M)" : "Week (W)"}
+                  disabled={locked}
+                  className={view.mode === mode ? "selected" : ""}
+                  onClick={() => navigate({ mode, date: view.date })}
+                >
+                  {mode === "month" ? "Month" : "Week"}
+                </button>
+              ))}
+            </div>
+            <input
+              ref={dateInput}
+              title="Jump to date (G)"
+              aria-label="Jump to date"
+              type="date"
+              min="1900-01-01"
+              max="2200-12-31"
+              value={view.date}
+              disabled={locked}
+              onChange={(e) => {
+                if (validDate(e.target.value))
+                  navigate({ mode: view.mode, date: e.target.value });
+              }}
+            />
+            <label className="holiday-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showHolidays !== false}
+                disabled={locked}
+                onChange={(e) => {
+                  if (lock()) return;
+                  const next = {
+                    ...settingsRef.current,
+                    showHolidays: e.target.checked,
+                  };
+                  settingsRef.current = next;
+                  setSettings(next);
+                  persist("settings", () => saveSettings(next));
+                }}
+              />
+              Show holidays
+            </label>
+          </nav>
+        </DockMenu>
+        <DockMenu label="Pages" icon="▤" disabled={locked}>
+          <section className="organizer" aria-label="Pages and bookmarks">
+            <header className="organizer-header">
+              <div>
+                <h2>Pages &amp; bookmarks</h2>
+                <p>
+                  A spread is two facing pages. Add pages, organize your
+                  planner, or jump to a favorite.
+                </p>
+              </div>
+            </header>
+            <div className="organizer-grid">
+              <section className="organizer-card">
+                <h3>Add pages</h3>
+                <p>Add a new two-page spread beside the one you’re viewing.</p>
+                <div className="organizer-controls">
+                  <label>
+                    Paper style{" "}
+                    <select
+                      aria-label="Insert paper"
+                      disabled={locked}
+                      value={insertType}
+                      onChange={(e) => setInsertType(e.target.value as Insert)}
+                    >
+                      {INSERTS.map((t) => (
+                        <option key={t} value={t}>
+                          {t === "dot-grid"
+                            ? "Dot grid"
+                            : t[0].toUpperCase() + t.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Title{" "}
+                    <input
+                      aria-label="Insert title"
+                      maxLength={100}
+                      value={insertTitle}
+                      disabled={locked}
+                      placeholder="Optional title"
+                      onChange={(e) => setInsertTitle(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Place new pages{" "}
+                    <select
+                      aria-label="Spread position"
+                      disabled={locked}
+                      value={position}
+                      onChange={(e) =>
+                        setPosition(e.target.value as "before" | "after")
+                      }
+                    >
+                      <option value="before">Before this spread</option>
+                      <option value="after">After this spread</option>
+                    </select>
+                  </label>
+                  <button
                     disabled={locked}
-                    value={insertType}
-                    onChange={(e) => setInsertType(e.target.value as Insert)}
+                    className="organizer-primary"
+                    onClick={() => organizePages("insert")}
                   >
-                    {INSERTS.map((t) => (
-                      <option key={t} value={t}>
-                        {t === "dot-grid"
-                          ? "Dot grid"
-                          : t[0].toUpperCase() + t.slice(1)}
+                    Add spread
+                  </button>
+                </div>
+              </section>
+              <section className="organizer-card">
+                <h3>Current spread</h3>
+                <p className="current-spread-name">
+                  {spreadTitle(view, settings.inserts)}
+                </p>
+                <div className="organizer-controls">
+                  <button
+                    disabled={locked}
+                    aria-pressed={!!bookmarked}
+                    onClick={() => organizePages("bookmark")}
+                  >
+                    {bookmarked ? "Remove bookmark" : "Bookmark spread"}
+                  </button>
+                  <button
+                    disabled={locked}
+                    onClick={() => organizePages("duplicate")}
+                  >
+                    Duplicate spread
+                  </button>
+                </div>
+                <p>
+                  Duplicates include handwriting and are placed {position} this
+                  spread.
+                </p>
+                <div className="organizer-controls">
+                  <label>
+                    Destination{" "}
+                    <select
+                      aria-label="Move destination"
+                      value={moveTarget}
+                      disabled={locked}
+                      onChange={(e) => setMoveTarget(e.target.value)}
+                    >
+                      <option value="">Choose destination</option>
+                      {organization
+                        .filter((v) => spreadId(v) !== spreadId(view))
+                        .map((v) => (
+                          <option key={spreadId(v)} value={spreadId(v)}>
+                            {spreadTitle(v, settings.inserts)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Place moved pages
+                    <select
+                      aria-label="Move position"
+                      disabled={locked}
+                      value={movePosition}
+                      onChange={(e) =>
+                        setMovePosition(e.target.value as "before" | "after")
+                      }
+                    >
+                      <option value="before">Before destination</option>
+                      <option value="after">After destination</option>
+                    </select>
+                  </label>
+                  <button
+                    disabled={locked || !moveTarget}
+                    onClick={() => organizePages("move", moveTarget)}
+                  >
+                    Move spread
+                  </button>
+                </div>
+
+                <p>Page-turn arrows follow your saved order.</p>
+                <button
+                  disabled={locked}
+                  onClick={() => organizePages("restore-order")}
+                >
+                  Restore original spread order
+                </button>
+                <p>
+                  Restores the original month and week sequence. Custom spreads
+                  stay in their current slots. Handwriting and bookmarks are
+                  preserved.
+                </p>
+                <div className="organizer-danger">
+                  <button
+                    disabled={locked || !view.insert}
+                    onClick={() => organizePages("delete")}
+                  >
+                    Delete custom spread
+                  </button>
+                  <small>
+                    {view.insert
+                      ? "Deletes both pages and their handwriting. You’ll be asked to confirm."
+                      : "Only custom spreads can be deleted."}
+                  </small>
+                </div>
+              </section>
+              <section className="organizer-card organizer-navigation">
+                <h3>Go to a spread</h3>
+                <h4>Bookmarks</h4>
+                <div className="bookmark-list" aria-label="Bookmarks">
+                  {(settings.bookmarks ?? []).length ? (
+                    organization
+                      .filter((v) => settings.bookmarks?.includes(spreadId(v)))
+                      .map((v) => (
+                        <button
+                          disabled={locked}
+                          key={spreadId(v)}
+                          onClick={() => navigate(v)}
+                        >
+                          ★ {spreadTitle(v, settings.inserts)}
+                        </button>
+                      ))
+                  ) : (
+                    <span>
+                      No bookmarks yet. Use “Bookmark spread” to save the
+                      current spread here.
+                    </span>
+                  )}
+                </div>
+                <label>
+                  All spreads{" "}
+                  <select
+                    aria-label="Open spread"
+                    disabled={locked}
+                    value={spreadId(view)}
+                    onChange={(e) => {
+                      const v = organization.find(
+                        (v) => spreadId(v) === e.target.value,
+                      );
+                      if (v) navigate(v);
+                    }}
+                  >
+                    {organization.map((v) => (
+                      <option key={spreadId(v)} value={spreadId(v)}>
+                        {spreadTitle(v, settings.inserts)}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label>
-                  Title{" "}
-                  <input
-                    aria-label="Insert title"
-                    maxLength={100}
-                    value={insertTitle}
-                    disabled={locked}
-                    placeholder="Optional title"
-                    onChange={(e) => setInsertTitle(e.target.value)}
-                  />
-                </label>
-                <label>
-                  Place new pages{" "}
-                  <select
-                    aria-label="Spread position"
-                    disabled={locked}
-                    value={position}
-                    onChange={(e) =>
-                      setPosition(e.target.value as "before" | "after")
-                    }
-                  >
-                    <option value="before">Before this spread</option>
-                    <option value="after">After this spread</option>
-                  </select>
-                </label>
-                <button
-                  disabled={locked}
-                  className="organizer-primary"
-                  onClick={() => organizePages("insert")}
-                >
-                  Add spread
-                </button>
-              </div>
-            </section>
-            <section className="organizer-card">
-              <h3>Current spread</h3>
-              <p className="current-spread-name">
-                {spreadTitle(view, settings.inserts)}
-              </p>
-              <div className="organizer-controls">
-                <button
-                  disabled={locked}
-                  aria-pressed={!!bookmarked}
-                  onClick={() => organizePages("bookmark")}
-                >
-                  {bookmarked ? "Remove bookmark" : "Bookmark spread"}
-                </button>
-                <button
-                  disabled={locked}
-                  onClick={() => organizePages("duplicate")}
-                >
-                  Duplicate spread
-                </button>
-              </div>
-              <p>
-                Duplicates include handwriting and are placed {position} this
-                spread.
-              </p>
-              <div className="organizer-controls">
-                <label>
-                  Destination{" "}
-                  <select
-                    aria-label="Move destination"
-                    value={moveTarget}
-                    disabled={locked}
-                    onChange={(e) => setMoveTarget(e.target.value)}
-                  >
-                    <option value="">Choose destination</option>
-                    {organization
-                      .filter((v) => spreadId(v) !== spreadId(view))
-                      .map((v) => (
-                        <option key={spreadId(v)} value={spreadId(v)}>
-                          {spreadTitle(v, settings.inserts)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label>
-                  Place moved pages
-                  <select
-                    aria-label="Move position"
-                    disabled={locked}
-                    value={movePosition}
-                    onChange={(e) =>
-                      setMovePosition(e.target.value as "before" | "after")
-                    }
-                  >
-                    <option value="before">Before destination</option>
-                    <option value="after">After destination</option>
-                  </select>
-                </label>
-                <button
-                  disabled={locked || !moveTarget}
-                  onClick={() => organizePages("move", moveTarget)}
-                >
-                  Move spread
-                </button>
-              </div>
-
-              <p>Page-turn arrows follow your saved order.</p>
-              <button
-                disabled={locked}
-                onClick={() => organizePages("restore-order")}
-              >
-                Restore original spread order
-              </button>
-              <p>
-                Restores the original month and week sequence. Custom spreads
-                stay in their current slots. Handwriting and bookmarks are
-                preserved.
-              </p>
-              <div className="organizer-danger">
-                <button
-                  disabled={locked || !view.insert}
-                  onClick={() => organizePages("delete")}
-                >
-                  Delete custom spread
-                </button>
-                <small>
-                  {view.insert
-                    ? "Deletes both pages and their handwriting. You’ll be asked to confirm."
-                    : "Only custom spreads can be deleted."}
-                </small>
-              </div>
-            </section>
-            <section className="organizer-card organizer-navigation">
-              <h3>Go to a spread</h3>
-              <h4>Bookmarks</h4>
-              <div className="bookmark-list" aria-label="Bookmarks">
-                {(settings.bookmarks ?? []).length ? (
-                  organization
-                    .filter((v) => settings.bookmarks?.includes(spreadId(v)))
-                    .map((v) => (
-                      <button
-                        disabled={locked}
-                        key={spreadId(v)}
-                        onClick={() => navigate(v)}
-                      >
-                        ★ {spreadTitle(v, settings.inserts)}
-                      </button>
-                    ))
-                ) : (
-                  <span>
-                    No bookmarks yet. Use “Bookmark spread” to save the current
-                    spread here.
-                  </span>
-                )}
-              </div>
-              <label>
-                All spreads{" "}
-                <select
-                  aria-label="Open spread"
-                  disabled={locked}
-                  value={spreadId(view)}
-                  onChange={(e) => {
-                    const v = organization.find(
-                      (v) => spreadId(v) === e.target.value,
-                    );
-                    if (v) navigate(v);
-                  }}
-                >
-                  {organization.map((v) => (
-                    <option key={spreadId(v)} value={spreadId(v)}>
-                      {spreadTitle(v, settings.inserts)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
+              </section>
+            </div>
+          </section>
+        </DockMenu>
+        <DockMenu label="Zoom" icon="⌕" disabled={locked}>
+          <div className="spread-zoom" role="group" aria-label="Spread zoom">
+            <button
+              aria-label="Zoom out"
+              title="Zoom out (−)"
+              disabled={locked || zoom <= 100}
+              onClick={() => setZoom(Math.max(100, zoom - 25))}
+            >
+              −
+            </button>
+            <output aria-label="Zoom level">{zoom}%</output>
+            <button
+              aria-label="Zoom in"
+              title="Zoom in (+)"
+              disabled={locked || zoom >= 250}
+              onClick={() => setZoom(Math.min(250, zoom + 25))}
+            >
+              +
+            </button>
+            <button
+              title="Fit spread (0)"
+              disabled={locked}
+              onClick={() => setZoom(100)}
+            >
+              Fit spread
+            </button>
+            <button
+              disabled={locked}
+              aria-pressed={hand}
+              onClick={(e) => {
+                setHand(!hand);
+                e.currentTarget
+                  .closest<HTMLElement>("[popover]")
+                  ?.hidePopover();
+              }}
+              title="Drag to move around the spread"
+            >
+              Hand
+            </button>
           </div>
-        </section>
-      )}
+        </DockMenu>
+        <DockMenu label="Files" icon="⇩" disabled={locked}>
+          {(!settings.lastBackup ||
+            Date.now() - Date.parse(settings.lastBackup) > 7 * 86400000) && (
+            <p className="backup-note">
+              {settings.lastBackup
+                ? "It has been over a week since a backup download. "
+                : "Your handwriting stays on this device. "}
+              Download a JSON backup and save it in Files.
+            </p>
+          )}
+          <div className="file-actions">
+            <button disabled={locked} onClick={backup}>
+              Download backup
+            </button>
+            <button disabled={locked} onClick={() => input.current?.click()}>
+              Restore
+            </button>
+            <input
+              ref={input}
+              hidden
+              type="file"
+              accept=".json,application/json"
+              onChange={(e) => {
+                void restore(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          <section className="pdf-panel" aria-label="PDF export">
+            <p>
+              PDF includes page templates and handwriting, with one two-page
+              spread per sheet. Keep JSON backups for editable recovery.
+            </p>
+            <label>
+              Pages to export{" "}
+              <select
+                aria-label="PDF pages"
+                disabled={locked}
+                value={pdfScope}
+                onChange={(e) => {
+                  setPdfScope(e.target.value as "current" | "binder");
+                  setPdfFile(null);
+                  setPdfProgress("");
+                }}
+              >
+                <option value="current">Current spread</option>
+                <option value="binder">Entire binder</option>
+              </select>
+            </label>{" "}
+            <button disabled={locked} onClick={exportPdf}>
+              Create PDF
+            </button>{" "}
+            {pdfAbort.current && (
+              <button onClick={() => pdfAbort.current?.abort()}>
+                Cancel PDF
+              </button>
+            )}
+            {pdfFile && (
+              <a
+                href={pdfFile.url}
+                download={pdfFile.name}
+                onClick={(e) =>
+                  e.currentTarget
+                    .closest<HTMLElement>("[popover]")
+                    ?.hidePopover()
+                }
+              >
+                Download PDF
+              </a>
+            )}
+            <p role="status">{pdfProgress}</p>
+          </section>
+        </DockMenu>
+        <button
+          className="dock-launcher"
+          disabled={locked}
+          onClick={() => setHelp(true)}
+          aria-label="Help and installation"
+          title="Help and installation (?)"
+        >
+          <span aria-hidden="true">?</span>
+          <small>Help</small>
+        </button>
+      </aside>
       <div className="workspace">
         <div className="spread-navigation">
           <button
             disabled={locked}
             aria-label="Previous spread"
+            title="Previous spread (←)"
             onClick={() => turnPage(-1)}
           >
             ‹
@@ -930,12 +1193,13 @@ function App() {
           <button
             disabled={locked}
             aria-label="Next spread"
+            title="Next spread (→)"
             onClick={() => turnPage(1)}
           >
             ›
           </button>
         </div>
-        <div className="book-wrap">
+        <SpreadViewport locked={locked} hand={hand || spacePan} zoom={zoom}>
           <div
             className={"book" + (turn ? " turning" : "")}
             ref={book}
@@ -1009,19 +1273,28 @@ function App() {
               <div className={"page page-" + side} key={id}>
                 <div className="page-content">
                   <Template
+                    showHolidays={settings.showHolidays !== false}
                     view={view}
                     insert={currentInsert}
                     side={side}
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
                   <Ink
+                    selectionReset={selectionReset}
                     fingerWriting={fingerWriting}
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
                     tool={tool}
                     eraser={tool === "eraser"}
-                    enabled={tool !== "browse" && !operation && !turn}
+                    enabled={
+                      !hand &&
+                      !spacePan &&
+                      !help &&
+                      tool !== "browse" &&
+                      !operation &&
+                      !turn
+                    }
                     onBusy={(value) => {
                       if (value) gesture.current = null;
                       if (value || busyRef.current)
@@ -1043,6 +1316,7 @@ function App() {
                     <div className={"page page-" + side} key={id}>
                       <div className="page-content">
                         <Template
+                          showHolidays={settings.showHolidays !== false}
                           view={turn.next}
                           insert={settings.inserts?.find(
                             (i) => i.id === turn.next.insert,
@@ -1110,67 +1384,70 @@ function App() {
               ))}
             </aside>
           </div>
-        </div>
+        </SpreadViewport>
       </div>
-      <div className="bottom">
-        <div className="toolbar" aria-label="Writing tools">
-          <ToolButton
-            disabled={locked}
-            icon={expanded ? "collapse" : "expand"}
-            label={expanded ? "Collapse writing tools" : "Expand writing tools"}
-            onClick={() => setExpanded(!expanded)}
-          ></ToolButton>
-          {expanded && (
-            <>
+      <aside className="toolbar left-dock dock" aria-label="Writing tools">
+        <ToolButton
+          disabled={locked}
+          icon={expanded ? "collapse" : "expand"}
+          label={expanded ? "Collapse writing tools" : "Expand writing tools"}
+          onClick={() => setExpanded(!expanded)}
+        ></ToolButton>
+        {expanded && (
+          <>
+            <ToolButton
+              icon="pen"
+              label="Pen"
+              disabled={locked}
+              aria-pressed={!hand && tool === "pen"}
+              className={!hand && tool === "pen" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("pen");
+              }}
+            />
+            {(["highlighter", "pencil", "select"] as const).map((t) => (
               <ToolButton
-                icon="pen"
-                label="Pen"
+                key={t}
+                icon={t}
+                label={
+                  t === "select"
+                    ? "Select / move"
+                    : t[0].toUpperCase() + t.slice(1)
+                }
+                aria-pressed={!hand && tool === t}
                 disabled={locked}
-                aria-pressed={tool === "pen"}
-                className={tool === "pen" ? "selected" : ""}
-                onClick={() => setTool("pen")}
+                className={!hand && tool === t ? "selected" : ""}
+                onClick={() => {
+                  setHand(false);
+                  setTool(t);
+                }}
               />
-              {(["highlighter", "pencil", "select"] as const).map((t) => (
-                <ToolButton
-                  key={t}
-                  icon={t}
-                  label={
-                    t === "select"
-                      ? "Select / move"
-                      : t[0].toUpperCase() + t.slice(1)
-                  }
-                  aria-pressed={tool === t}
-                  disabled={locked}
-                  className={tool === t ? "selected" : ""}
-                  onClick={() => setTool(t)}
-                />
-              ))}
-              <ToolButton
-                icon="eraser"
-                label="Eraser"
-                disabled={locked}
-                aria-pressed={tool === "eraser"}
-                className={tool === "eraser" ? "selected" : ""}
-                onClick={() => setTool("eraser")}
-              />
-              <ToolButton
-                icon="browse"
-                label="Browse dates"
-                disabled={locked}
-                aria-pressed={tool === "browse"}
-                className={tool === "browse" ? "selected" : ""}
-                onClick={() => setTool("browse")}
-              />
-              <span className="divider" />
-              <ToolButton
-                icon="finger"
-                label="Finger writing"
-                disabled={locked}
-                aria-pressed={fingerWriting}
-                className={fingerWriting ? "selected" : ""}
-                onClick={() => setFingerWriting(!fingerWriting)}
-                hint="Finger writing: Enable touch input for fingers or touch styluses. Turn off when using a pen for palm protection."
-              />
+            ))}
+            <ToolButton
+              icon="eraser"
+              label="Eraser"
+              disabled={locked}
+              aria-pressed={!hand && tool === "eraser"}
+              className={!hand && tool === "eraser" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("eraser");
+              }}
+            />
+            <ToolButton
+              icon="browse"
+              label="Browse dates"
+              disabled={locked}
+              aria-pressed={!hand && tool === "browse"}
+              className={!hand && tool === "browse" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("browse");
+              }}
+            />
+            <span className="divider" />
+            <div className="dock-palette" role="group" aria-label="Colors">
               {palette.map(({ color: c, name }) => (
                 <button
                   key={c}
@@ -1184,13 +1461,39 @@ function App() {
                   onClick={() => {
                     if (tool === "highlighter") setHighlighterColor(c);
                     else setInkColor(c);
+                    setHand(false);
                     if (tool !== "pencil" && tool !== "highlighter")
                       setTool("pen");
                   }}
                 />
               ))}
+            </div>
+            <DockMenu
+              label="Tool settings"
+              icon="⚙"
+              side="left"
+              disabled={locked}
+            >
+              <div className="finger-setting">
+                <ToolButton
+                  icon="finger"
+                  label="Finger writing"
+                  disabled={locked}
+                  aria-pressed={fingerWriting}
+                  className={fingerWriting ? "selected" : ""}
+                  onClick={() => setFingerWriting(!fingerWriting)}
+                  hint="Finger writing: Enable touch input for fingers or touch styluses. Turn off when using a pen for palm protection."
+                />
+                <span>
+                  Finger writing{" "}
+                  <small>
+                    Enable for a finger or touch stylus. Leave off when using a
+                    pen for palm protection.
+                  </small>
+                </span>
+              </div>
               <label className="thickness">
-                Size{" "}
+                Size <output>{width}</output>{" "}
                 <input
                   aria-label={
                     tool === "highlighter"
@@ -1210,102 +1513,28 @@ function App() {
                   }}
                 />
               </label>
-              <ToolButton
-                icon="undo"
-                label="Undo"
-                disabled={locked || !history.current.past.length}
-                onClick={() => undo()}
-              />
-              <ToolButton
-                icon="redo"
-                label="Redo"
-                disabled={locked || !history.current.future.length}
-                onClick={() => undo(true)}
-              />
-            </>
-          )}
-        </div>
+            </DockMenu>
+            <ToolButton
+              icon="undo"
+              label="Undo"
+              disabled={locked || !history.current.past.length}
+              onClick={() => undo()}
+            />
+            <ToolButton
+              icon="redo"
+              label="Redo"
+              disabled={locked || !history.current.future.length}
+              onClick={() => undo(true)}
+            />
+          </>
+        )}
+      </aside>
+      <div className="bottom">
         <div className="status-row">
           <span role="status">
             {status} · {online ? "Online" : "Offline"}
           </span>
-          <div>
-            <button
-              disabled={locked}
-              onClick={() => setPdfPanel(!pdfPanel)}
-              aria-expanded={pdfPanel}
-            >
-              Export PDF
-            </button>
-            <button disabled={locked} onClick={backup}>
-              Download backup
-            </button>
-            <button disabled={locked} onClick={() => input.current?.click()}>
-              Restore
-            </button>
-            <input
-              ref={input}
-              hidden
-              type="file"
-              accept=".json,application/json"
-              onChange={(e) => {
-                void restore(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
-          </div>
         </div>
-        {pdfPanel && (
-          <section className="pdf-panel" aria-label="PDF export">
-            <p>
-              PDF includes page templates and handwriting, with one two-page
-              spread per sheet. Keep JSON backups for editable recovery.
-            </p>
-            <label>
-              Pages to export{" "}
-              <select
-                aria-label="PDF pages"
-                disabled={locked}
-                value={pdfScope}
-                onChange={(e) => {
-                  setPdfScope(e.target.value as "current" | "binder");
-                  setPdfFile(null);
-                  setPdfProgress("");
-                }}
-              >
-                <option value="current">Current spread</option>
-                <option value="binder">Entire binder</option>
-              </select>
-            </label>{" "}
-            <button disabled={locked} onClick={exportPdf}>
-              Create PDF
-            </button>{" "}
-            {pdfAbort.current && (
-              <button onClick={() => pdfAbort.current?.abort()}>
-                Cancel PDF
-              </button>
-            )}
-            {pdfFile && (
-              <a
-                href={pdfFile.url}
-                download={pdfFile.name}
-                onClick={() => setPdfPanel(false)}
-              >
-                Download PDF
-              </a>
-            )}
-            <p role="status">{pdfProgress}</p>
-          </section>
-        )}
-        {(!settings.lastBackup ||
-          Date.now() - Date.parse(settings.lastBackup) > 7 * 86400000) && (
-          <p className="backup-note">
-            {settings.lastBackup
-              ? "It has been over a week since a backup download. "
-              : "Your handwriting stays on this device. "}
-            Download a JSON backup and save it in Files.
-          </p>
-        )}
         {error && (
           <div className="error" role="alert">
             {error}{" "}
@@ -1327,11 +1556,37 @@ function App() {
         <div className="modal-backdrop">
           <section
             className="help"
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="help-title"
           >
             <h2 id="help-title">Your planner, at home on your iPad</h2>
+            <p>Version {APP_VERSION}</p>
+            <h3>Keyboard shortcuts</h3>
+            <p>
+              Shortcuts pause while editing form fields and while writing or
+              turning pages. Use Command instead of Ctrl on a Mac. Browser zoom
+              shortcuts remain available.
+            </p>
+            <table className="shortcut-table">
+              <thead>
+                <tr>
+                  <th>Keys</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SHORTCUTS.map(([keys, action]) => (
+                  <tr key={keys}>
+                    <td>
+                      <kbd>{keys}</kbd>
+                    </td>
+                    <td>{action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             <p>
               Write with a pen or mouse. Enable Finger writing in the writing
               tools to use one finger or a touch stylus on a phone. Leave it off
@@ -1341,6 +1596,12 @@ function App() {
               removes whole strokes. Undo and redo follow the order of your
               edits across all pages and panels, even after navigating to
               another spread. They leave your current view in place.
+            </p>
+            <p>
+              Open Zoom in the right toolbar and use + and − to zoom from 100%
+              to 250%. Fit spread shows both pages again. Scroll to reach
+              enlarged pages, or select Hand and drag to move around. Select a
+              writing tool to resume editing.
             </p>
             <p>
               In Safari, open Share → Add to Home Screen. Open the installed

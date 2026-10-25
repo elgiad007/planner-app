@@ -46,6 +46,7 @@ export async function createPdf(
           root.render(
             <div className="page-content">
               <Template
+                showHolidays={data.settings.showHolidays !== false}
                 view={view}
                 side={side}
                 insert={inserts.get(view.insert ?? "")}

@@ -1,3 +1,4 @@
+import { downloadBackup, openDock } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -121,8 +122,9 @@ try {
     };
   });
   // Lazy PDF dependencies must already be in the offline precache.
-  await page.getByRole("button", { name: "Export PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Files", exact: true }).click();
   async function pdf(name) {
+    await openDock(page, "Files");
     await page.getByRole("button", { name: "Create PDF", exact: true }).click();
     const link = page.getByRole("link", { name: "Download PDF", exact: true });
     await link.waitFor({ timeout: 60000 });
@@ -136,11 +138,11 @@ try {
       .waitFor({ state: "hidden" });
     assert.equal(
       await page
-        .getByRole("button", { name: "Export PDF", exact: true })
+        .getByRole("button", { name: "Files", exact: true })
         .getAttribute("aria-expanded"),
       "false",
     );
-    await page.getByRole("button", { name: "Export PDF", exact: true }).click();
+    await page.getByRole("button", { name: "Files", exact: true }).click();
     await writeFile(`test-results/${name}.pdf`, bytes);
     return bytes;
   }
@@ -150,15 +152,17 @@ try {
     pixel[1] - pixel[2] > 30,
     `Missing highlighter over ink in exported canvas: ${pixel}`,
   );
+  await openDock(page, "Navigate");
   await page.getByRole("button", { name: "Week", exact: true }).click();
+  await openDock(page, "Files");
   await pdf("phase4-week");
-  await page
-    .getByRole("button", { name: "Pages & bookmarks", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Pages", exact: true }).click();
+  await openDock(page, "Pages");
   await page
     .getByLabel("Open spread", { exact: true })
     .selectOption("custom:load-2");
   await pdf("phase4-dots");
+  await openDock(page, "Pages");
   await page
     .getByLabel("Open spread", { exact: true })
     .selectOption("custom:load-3");
@@ -185,13 +189,7 @@ try {
     .getByRole("heading", { name: "Notes 3", exact: true })
     .first()
     .waitFor();
-  const event = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download backup", exact: true })
-    .click();
-  const backedUp = JSON.parse(
-    await readFile(await (await event).path(), "utf8"),
-  );
+  const backedUp = await downloadBackup(page);
   assert.deepEqual(
     backedUp.pages.sort((a, b) => a.id.localeCompare(b.id)),
     data.pages.sort((a, b) => a.id.localeCompare(b.id)),
@@ -240,7 +238,7 @@ try {
     buffer: Buffer.from(JSON.stringify(small)),
   });
   await page.getByRole("heading", { name: "January 2027" }).first().waitFor();
-  await page.getByRole("button", { name: "Export PDF", exact: true }).click();
+  await page.getByRole("button", { name: "Files", exact: true }).click();
   await page
     .getByRole("combobox", { name: "PDF pages" })
     .selectOption("binder");

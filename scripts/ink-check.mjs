@@ -1,6 +1,6 @@
+import { downloadBackup } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const context = await browser.newContext({
@@ -86,11 +86,7 @@ try {
     });
   }
   async function backup() {
-    const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download backup" }).click();
-    const data = JSON.parse(
-      await readFile(await (await download).path(), "utf8"),
-    );
+    const data = await downloadBackup(page);
     return data.pages.flatMap((p) => p.strokes);
   }
   async function pixels() {

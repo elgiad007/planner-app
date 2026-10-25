@@ -19,6 +19,7 @@ export function Ink({
   width,
   eraser,
   tool = "pen",
+  selectionReset = 0,
   enabled,
   fingerWriting,
   onChange,
@@ -28,6 +29,7 @@ export function Ink({
   color: string;
   width: number;
   tool?: "pen" | "pencil" | "highlighter" | "select" | "eraser" | "browse";
+  selectionReset?: number;
   eraser: boolean;
   enabled: boolean;
   fingerWriting: boolean;
@@ -291,7 +293,7 @@ export function Ink({
   useLayoutEffect(() => {
     selected.current.clear();
     render();
-  }, [tool]);
+  }, [tool, selectionReset]);
   useLayoutEffect(() => {
     if (!enabled) finish();
   }, [enabled]);

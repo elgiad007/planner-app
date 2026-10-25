@@ -1,6 +1,7 @@
+import { downloadBackup, openDock } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { readFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 await mkdir("test-results", { recursive: true });
 const browser = await chromium.launch({ channel: "msedge", headless: true });
@@ -80,11 +81,8 @@ async function assertStableLayout() {
     );
 }
 async function backup() {
-  const download = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download backup", exact: true })
-    .click();
-  return JSON.parse(await readFile(await (await download).path(), "utf8"));
+  const data = await downloadBackup(page);
+  return data;
 }
 try {
   await page.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
@@ -150,15 +148,19 @@ try {
   await touch("touchEnd", []);
   await settled();
   await page.getByRole("heading", { name: "January 2027" }).first().waitFor();
+  await openDock(page, "Tool settings");
   await page
     .getByRole("button", { name: "Finger writing", exact: true })
     .click();
+  await page.keyboard.press("Escape");
   await swipe();
   assert.equal(await page.locator(".page-turn").count(), 0);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await openDock(page, "Tool settings");
   await page
     .getByRole("button", { name: "Finger writing", exact: true })
     .click();
+  await page.keyboard.press("Escape");
   await page.waitForTimeout(750);
   // Multitouch must never navigate.
   await touch("touchStart", [[r.x + 260, r.y + 250]]);

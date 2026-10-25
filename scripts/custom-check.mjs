@@ -1,6 +1,7 @@
+import { downloadBackup, openDock } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { readFile, mkdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 await mkdir("test-results", { recursive: true });
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 const context = await browser.newContext({
@@ -18,9 +19,7 @@ async function saved() {
   );
 }
 async function snapshot() {
-  const event = page.waitForEvent("download");
-  await button("Download backup").click();
-  const result = JSON.parse(await readFile(await (await event).path(), "utf8"));
+  const result = await downloadBackup(page);
   result.pages.sort((a, b) => a.id.localeCompare(b.id));
   await saved();
   return result;
@@ -44,7 +43,7 @@ try {
   await heading().waitFor();
   await draw(100, 200, 180, 240);
   const legacyInk = (await snapshot()).pages[0];
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   for (const template of [
     "blank",
     "lined",
@@ -63,21 +62,26 @@ try {
     assert.equal(await heading().textContent(), template + " ideas");
     assert.equal(await page.locator(".book > .page .insert-paper").count(), 2);
   }
-  await button("Close pages").click();
+  await page.keyboard.press("Escape");
   await button("Highlighter").click();
   const highlighterSize = page.getByRole("slider", {
     name: "Highlighter thickness",
   });
+  await openDock(page, "Tool settings");
   assert.equal(await highlighterSize.inputValue(), "24");
   assert.equal(await highlighterSize.getAttribute("max"), "48");
+  await openDock(page, "Tool settings");
   await highlighterSize.fill("48");
   await button("Pen").click();
+  await openDock(page, "Tool settings");
   assert.equal(
     await page.getByRole("slider", { name: "Pen thickness" }).inputValue(),
     "2.5",
   );
   await button("Highlighter").click();
+  await openDock(page, "Tool settings");
   assert.equal(await highlighterSize.inputValue(), "48");
+  await openDock(page, "Tool settings");
   await highlighterSize.fill("24");
   await draw(100, 200, 180, 240);
   const highlightLayer = page
@@ -178,7 +182,7 @@ try {
     moved,
   );
   await button("Pen").click();
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   await button("Bookmark spread").click();
   await saved();
   await button("Duplicate spread").click();
@@ -188,12 +192,12 @@ try {
   const copy = duplicate.pages.find((p) => p.id === copyId);
   assert.notEqual(copy.strokes[0].id, moved.strokes[0].id);
   assert.deepEqual(copy.strokes[0].points, moved.strokes[0].points);
-  await button("Close pages").click();
+  await page.keyboard.press("Escape");
   await draw(400, 400, 440, 440);
   const edited = await snapshot();
   assert.equal(edited.pages.find((p) => p.id === copyId).strokes.length, 3);
   assert.equal(edited.pages.find((p) => p.id === originalId).strokes.length, 2);
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   await page
     .getByLabel("Move position", { exact: true })
     .selectOption("before");
@@ -221,7 +225,7 @@ try {
   const reloaded = await snapshot();
   assert.deepEqual(reloaded.pages, reordered.pages);
   assert.deepEqual(reloaded.settings.order, reordered.settings.order);
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   await open("month:2027-01-01");
   await page
     .getByLabel("Move destination", { exact: true })
@@ -252,7 +256,7 @@ try {
   await page.reload();
   await heading().waitFor();
   assert.deepEqual((await snapshot()).settings.order, reset.settings.order);
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   await open(`custom:${reloaded.settings.view.insert}`);
   const deleteButton = button("Delete custom spread");
   page.once("dialog", (d) => d.dismiss());
@@ -298,13 +302,13 @@ try {
   const restored = await snapshot();
   assert.deepEqual(restored.pages, reordered.pages);
   assert.deepEqual(restored.settings.order, reordered.settings.order);
-  await button("Close pages").click();
+  await page.keyboard.press("Escape");
   await page.screenshot({
     path: "test-results/phase3-desktop.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 1376, height: 1032 });
-  await button("Pages & bookmarks").click();
+  await openDock(page, "Pages");
   await page.screenshot({
     path: "test-results/phase3-organizer.png",
     fullPage: true,
@@ -326,7 +330,7 @@ try {
         ? `custom:${edge.insert}`
         : `${edge.mode}:${edge.date}`;
       await open(id);
-      await button("Close pages").click();
+      await page.keyboard.press("Escape");
       if (direction > 0 && crossing === 0) {
         const cdp = await context.newCDPSession(page);
         const r = await page
@@ -368,7 +372,7 @@ try {
       await page.waitForFunction(() => !document.querySelector(".page-turn"));
       await saved();
       assert.deepEqual((await snapshot()).settings.view, edge);
-      await button("Pages & bookmarks").click();
+      await openDock(page, "Pages");
     }
   }
   const boundaryResult = await snapshot();

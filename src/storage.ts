@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { APP_VERSION } from "./version";
 import {
   initialView,
   type Page,
@@ -58,7 +59,7 @@ export async function loadPlanner() {
     format: "my-pastel-planner",
     schemaVersion: 2,
     layoutVersion: 1,
-    appVersion: "0.4.0",
+    appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     pages,
     settings,

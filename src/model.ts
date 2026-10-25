@@ -17,6 +17,7 @@ export type CustomSpread = {
 };
 export type View = { mode: "month" | "week"; date: string; insert?: string };
 export type Settings = {
+  showHolidays?: boolean;
   view: View;
   lastBackup?: string;
   order?: View[];
@@ -132,6 +133,11 @@ export function validateBackup(raw: unknown): Backup {
       !Number.isFinite(Date.parse(b.settings.lastBackup)))
   )
     throw Error("Invalid backup date.");
+  if (
+    b.settings.showHolidays !== undefined &&
+    typeof b.settings.showHolidays !== "boolean"
+  )
+    throw Error("Invalid holiday visibility setting.");
   if (b.pages.length > 20000) throw Error("Backup contains too many pages.");
   const inserts = b.settings.inserts ?? [];
   const order = b.settings.order ?? [];
@@ -266,6 +272,9 @@ export function validateBackup(raw: unknown): Backup {
     })),
     settings: {
       view: cleanView(b.settings.view),
+      ...(b.settings.showHolidays !== undefined
+        ? { showHolidays: b.settings.showHolidays }
+        : {}),
       ...(b.settings.lastBackup ? { lastBackup: b.settings.lastBackup } : {}),
       ...(b.schemaVersion === 2
         ? {

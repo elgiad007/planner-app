@@ -576,6 +576,21 @@ main {
   box-shadow: 0 20px 80px #32233d44;
   line-height: 1.65;
 }
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.shortcut-table th,
+.shortcut-table td {
+  text-align: left;
+  padding: 0.35rem;
+  border-bottom: 1px solid #ddd;
+}
+.shortcut-table kbd {
+  font: inherit;
+  font-weight: 600;
+}
 .help h2 {
   font:
     27px Georgia,
@@ -859,4 +874,460 @@ main {
   left: auto;
   right: 0;
   transform: none;
+}
+/* Viewport workspace and floating docks. Paper keeps its original 3:4 ratio. */
+.planner-shell {
+  --left-rail: 72px;
+  --right-rail: 84px;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.planner-shell .workspace {
+  position: absolute;
+  inset: 32px var(--right-rail) 32px var(--left-rail);
+  max-width: none;
+  margin: 0;
+}
+.planner-shell .book-wrap {
+  width: 100%;
+  height: 100%;
+  padding: 0 44px 0 0;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+}
+.planner-shell .book {
+  width: min(100%, calc((100dvh - 64px) * 1.5 + 16px));
+  max-width: none;
+  min-width: 0;
+  gap: 28px;
+  margin: 0;
+}
+.planner-shell .spread-navigation {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  pointer-events: none;
+}
+.planner-shell .spread-navigation > span {
+  position: fixed;
+  top: 6px;
+  left: var(--left-rail);
+  right: var(--right-rail);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+.planner-shell .spread-navigation small {
+  display: none;
+}
+.planner-shell .spread-navigation > button {
+  position: fixed;
+  bottom: 0;
+  left: calc(50% - 54px);
+  padding: 0 14px;
+  height: 30px;
+  font-size: 26px;
+  line-height: 26px;
+  pointer-events: auto;
+  z-index: 6;
+}
+.planner-shell .spread-navigation > button:last-child {
+  left: calc(50% + 10px);
+}
+.dock {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: #fffaf6f2;
+  border: 1px solid #ded3df;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px #6848721a;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.toolbar.left-dock {
+  left: 8px;
+  width: 54px;
+  margin: 0;
+  flex-wrap: nowrap;
+}
+.right-dock {
+  right: 8px;
+  width: 64px;
+}
+.dock > * {
+  flex-shrink: 0;
+}
+.dock-brand {
+  font-size: 26px;
+  color: #ac819c;
+}
+.dock-launcher {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  width: 100%;
+  padding: 5px 2px;
+}
+.dock-launcher > span {
+  font-size: 23px;
+  line-height: 25px;
+}
+.dock-launcher small {
+  font-size: 10px;
+}
+.dock-launcher[aria-expanded="true"] {
+  background: #ded4e9;
+}
+.toolbar .divider {
+  width: 26px;
+  height: 1px;
+  border: 0;
+  border-top: 1px solid #ded3df;
+  margin: 3px 0;
+}
+.dock-palette {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 2px;
+  padding: 5px 0;
+}
+.toolbar .dock-palette .swatch {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin: 0;
+  border-width: 2px;
+}
+.toolbar .tool-button {
+  width: 40px;
+  height: 40px;
+}
+/* The rail scrolls on short screens; native titles remain visible outside it. */
+.left-dock .tool-tooltip {
+  display: none;
+}
+.dock-panel {
+  position: fixed;
+  inset: 12px 84px auto auto;
+  margin: 0;
+  width: min(420px, calc(100vw - 164px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid #d6c9e8;
+  border-radius: 16px;
+  background: #fffaf6;
+  color: #514b5d;
+  box-shadow: 0 12px 48px #342a3d33;
+  font: inherit;
+}
+.dock-panel::backdrop {
+  background: transparent;
+}
+.dock-panel-left {
+  left: 72px;
+  right: auto;
+  width: min(280px, calc(100vw - 156px));
+}
+.dock-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.dock-panel-heading > button {
+  min-width: 40px;
+  min-height: 40px;
+}
+.dock-panel button,
+.dock-panel input,
+.dock-panel select,
+.dock-panel a {
+  min-height: 44px;
+}
+.dock-panel .nav-controls {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.dock-panel .nav-controls input {
+  max-width: none;
+  width: 100%;
+}
+.dock-panel .segmented {
+  display: flex;
+}
+.dock-panel .segmented button {
+  flex: 1;
+}
+.dock-panel .organizer {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.dock-panel .organizer-grid {
+  display: flex;
+  flex-direction: column;
+}
+.dock-panel .organizer-header {
+  margin-bottom: 12px;
+}
+.dock-panel .organizer-header h2 {
+  display: none;
+}
+.dock-panel .organizer-card {
+  padding: 12px;
+}
+.dock-panel .file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.dock-panel .file-actions button {
+  background: #f0e7f4;
+}
+.dock-panel .backup-note {
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.dock-panel .thickness {
+  display: flex;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.dock-panel .thickness input {
+  width: 100%;
+  min-width: 0;
+}
+.planner-shell .bottom {
+  position: fixed;
+  bottom: 36px;
+  left: 76px;
+  right: 84px;
+  max-width: none;
+  margin: 0;
+  z-index: 9;
+  max-height: 35dvh;
+  overflow: auto;
+  pointer-events: none;
+}
+.bottom .error,
+.bottom .update {
+  pointer-events: auto;
+}
+.planner-shell .status-row {
+  position: fixed;
+  bottom: 8px;
+  left: 76px;
+  margin: 0;
+  font-size: 10px;
+  max-width: calc(50vw - 140px);
+  overflow: hidden;
+  white-space: nowrap;
+}
+.planner-shell .status-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (orientation: portrait) {
+  .planner-shell .turn-destination {
+    gap: 28px;
+  }
+  .planner-shell .spine {
+    width: 28px;
+    left: calc(50% - 14px);
+  }
+}
+@media (max-width: 700px) {
+  .planner-shell {
+    --left-rail: 60px;
+    --right-rail: 66px;
+  }
+  .toolbar.left-dock {
+    left: 4px;
+    width: 50px;
+    padding: 4px;
+  }
+  .right-dock {
+    right: 4px;
+    width: 54px;
+    padding: 4px;
+  }
+  .dock-panel {
+    right: 66px;
+    width: calc(100vw - 126px);
+    padding: 10px;
+  }
+  .dock-panel-left {
+    left: 60px;
+    right: auto;
+  }
+  .planner-shell .book-wrap {
+    padding-right: 28px;
+  }
+  .planner-shell .book {
+    padding: 6px;
+    gap: 12px;
+    width: min(100%, calc((100dvh - 64px) * 1.5 + 6px));
+  }
+  .planner-shell .turn-destination,
+  .planner-shell .page-turn > div {
+    inset: 6px;
+    gap: 12px;
+  }
+  .planner-shell .spine {
+    width: 12px;
+    left: calc(50% - 6px);
+    top: 6px;
+    bottom: 6px;
+  }
+  .planner-shell .rings,
+  .planner-shell .rings i {
+    width: 28px;
+  }
+  .planner-shell .rings i {
+    height: 9px;
+  }
+  .planner-shell .month-tabs {
+    width: 29px;
+    right: -26px;
+    gap: 2px;
+    top: 6px;
+    bottom: 6px;
+  }
+  .planner-shell .month-tabs button {
+    font-size: 8px;
+    padding: 0 1px 0 4px;
+  }
+  .planner-shell .month-tabs button.active {
+    width: 32px;
+  }
+  .planner-shell .status-row {
+    left: 60px;
+    max-width: calc(50vw - 116px);
+  }
+}
+.finger-setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.finger-setting .tool-button {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.finger-setting small {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #807286;
+}
+.thickness output {
+  min-width: 22px;
+}
+
+.holiday-label {
+  color: #786883;
+  font-size: 1.65cqw;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.holiday-label:empty {
+  display: none;
+}
+.date-cell .holiday-label {
+  padding: 0 0.8cqw 0.5cqw;
+}
+.muted .holiday-label {
+  opacity: 0.65;
+}
+.weekly-day .holiday-label {
+  margin-bottom: 0.6cqw;
+}
+.holiday-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.holiday-toggle input {
+  width: auto;
+}
+/* Spread magnification changes page layout so ink canvases resize with the paper. */
+.planner-shell .zoom-viewport {
+  display: block;
+  /* Override book-wrap centering: an oversized stage must start inside the
+     scrollable area. The stage itself centers paper when it fits. */
+  place-items: start;
+  overflow: auto;
+  padding: 0;
+  overscroll-behavior: contain;
+}
+.zoom-stage {
+  min-width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 50px 10px 10px;
+  box-sizing: border-box;
+}
+.zoom-book-size {
+  flex: none;
+}
+.planner-shell .zoom-book-size .book {
+  width: 100%;
+}
+.hand-mode {
+  cursor: grab;
+  touch-action: none;
+}
+.hand-mode:active {
+  cursor: grabbing;
+}
+.hand-mode .book * {
+  pointer-events: none;
+}
+.spread-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #ded3df;
+  border-radius: 10px;
+  background: #fffaf6;
+  white-space: nowrap;
+}
+.spread-zoom button {
+  padding: 5px 8px;
+  min-height: 32px;
+}
+.spread-zoom output {
+  min-width: 42px;
+  text-align: center;
+  font-size: 13px;
+}
+.spread-zoom button[aria-pressed="true"] {
+  background: #ded4e9;
 }

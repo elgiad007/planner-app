@@ -1,6 +1,7 @@
+import { downloadBackup, openDock } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 await mkdir("test-results", { recursive: true });
 const browser = await chromium.launch({ channel: "msedge", headless: true });
@@ -39,9 +40,8 @@ try {
     .filter({ hasText: "Saved on this iPad" })
     .waitFor();
   async function backup() {
-    const event = page.waitForEvent("download");
-    await page.getByRole("button", { name: "Download backup" }).click();
-    return JSON.parse(await readFile(await (await event).path(), "utf8"));
+    const data = await downloadBackup(page);
+    return data;
   }
   const written = await backup();
   assert.equal(written.pages[0].strokes.length, 1);
@@ -131,7 +131,9 @@ try {
     path: "test-results/planner-landscape.png",
     fullPage: true,
   });
+  await openDock(page, "Navigate");
   await page.getByRole("button", { name: "Week", exact: true }).click();
+  await page.keyboard.press("Escape");
   await page.screenshot({
     path: "test-results/planner-week.png",
     fullPage: true,

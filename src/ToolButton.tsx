@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
+import { TOOL_HINTS } from "./shortcuts";
 
 const paths = {
   pen: "m5 19 1-5L17 3l4 4L10 18l-5 1Zm9-13 4 4M6 14l4 4",
@@ -26,11 +27,14 @@ export function ToolButton({
   label: string;
   hint?: string;
 }) {
+  const tooltip =
+    hint ?? (TOOL_HINTS[label] ? `${label} (${TOOL_HINTS[label]})` : label);
   return (
     <button
       {...props}
       className={`tool-button ${className}`}
       aria-label={label}
+      title={tooltip}
     >
       <svg
         viewBox="0 0 24 24"
@@ -44,7 +48,7 @@ export function ToolButton({
         <path d={paths[icon]} />
       </svg>
       <span className="tool-tooltip" aria-hidden="true">
-        {hint ?? label}
+        {tooltip}
       </span>
     </button>
   );
