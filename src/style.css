@@ -1258,3 +1258,61 @@ main {
 .holiday-toggle input {
   width: auto;
 }
+/* Spread magnification changes page layout so ink canvases resize with the paper. */
+.planner-shell .zoom-viewport {
+  display: block;
+  /* Override book-wrap centering: an oversized stage must start inside the
+     scrollable area. The stage itself centers paper when it fits. */
+  place-items: start;
+  overflow: auto;
+  padding: 0;
+  overscroll-behavior: contain;
+}
+.zoom-stage {
+  min-width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 50px 10px 10px;
+  box-sizing: border-box;
+}
+.zoom-book-size {
+  flex: none;
+}
+.planner-shell .zoom-book-size .book {
+  width: 100%;
+}
+.hand-mode {
+  cursor: grab;
+  touch-action: none;
+}
+.hand-mode:active {
+  cursor: grabbing;
+}
+.hand-mode .book * {
+  pointer-events: none;
+}
+.spread-zoom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #ded3df;
+  border-radius: 10px;
+  background: #fffaf6;
+  white-space: nowrap;
+}
+.spread-zoom button {
+  padding: 5px 8px;
+  min-height: 32px;
+}
+.spread-zoom output {
+  min-width: 42px;
+  text-align: center;
+  font-size: 13px;
+}
+.spread-zoom button[aria-pressed="true"] {
+  background: #ded4e9;
+}

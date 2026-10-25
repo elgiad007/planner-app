@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SaveQueue } from "./saveQueue";
+import { SpreadViewport } from "./SpreadViewport";
 import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
 import { Ink } from "./Ink";
@@ -119,7 +120,11 @@ function App() {
         `Could not save: ${String(e)}. Keep the app open. Download a backup or retry.`,
       );
     });
-  const book = useWritingGuard(tool !== "browse" && !operation && ready);
+  const [hand, setHand] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const book = useWritingGuard(
+    !hand && tool !== "browse" && !operation && ready,
+  );
   const history = useRef<{ past: Page[]; future: Page[] }>({
     past: [],
     future: [],
@@ -906,6 +911,41 @@ function App() {
             </div>
           </section>
         </DockMenu>
+        <DockMenu label="Zoom" icon="⌕" disabled={locked}>
+          <div className="spread-zoom" role="group" aria-label="Spread zoom">
+            <button
+              aria-label="Zoom out"
+              disabled={locked || zoom <= 100}
+              onClick={() => setZoom(Math.max(100, zoom - 25))}
+            >
+              −
+            </button>
+            <output aria-label="Zoom level">{zoom}%</output>
+            <button
+              aria-label="Zoom in"
+              disabled={locked || zoom >= 250}
+              onClick={() => setZoom(Math.min(250, zoom + 25))}
+            >
+              +
+            </button>
+            <button disabled={locked} onClick={() => setZoom(100)}>
+              Fit spread
+            </button>
+            <button
+              disabled={locked}
+              aria-pressed={hand}
+              onClick={(e) => {
+                setHand(!hand);
+                e.currentTarget
+                  .closest<HTMLElement>("[popover]")
+                  ?.hidePopover();
+              }}
+              title="Drag to move around the spread"
+            >
+              Hand
+            </button>
+          </div>
+        </DockMenu>
         <DockMenu label="Files" icon="⇩" disabled={locked}>
           {(!settings.lastBackup ||
             Date.now() - Date.parse(settings.lastBackup) > 7 * 86400000) && (
@@ -1021,7 +1061,7 @@ function App() {
             ›
           </button>
         </div>
-        <div className="book-wrap">
+        <SpreadViewport locked={locked} hand={hand} zoom={zoom}>
           <div
             className={"book" + (turn ? " turning" : "")}
             ref={book}
@@ -1108,7 +1148,7 @@ function App() {
                     width={width}
                     tool={tool}
                     eraser={tool === "eraser"}
-                    enabled={tool !== "browse" && !operation && !turn}
+                    enabled={!hand && tool !== "browse" && !operation && !turn}
                     onBusy={(value) => {
                       if (value) gesture.current = null;
                       if (value || busyRef.current)
@@ -1198,7 +1238,7 @@ function App() {
               ))}
             </aside>
           </div>
-        </div>
+        </SpreadViewport>
       </div>
       <aside className="toolbar left-dock dock" aria-label="Writing tools">
         <ToolButton
@@ -1213,9 +1253,12 @@ function App() {
               icon="pen"
               label="Pen"
               disabled={locked}
-              aria-pressed={tool === "pen"}
-              className={tool === "pen" ? "selected" : ""}
-              onClick={() => setTool("pen")}
+              aria-pressed={!hand && tool === "pen"}
+              className={!hand && tool === "pen" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("pen");
+              }}
             />
             {(["highlighter", "pencil", "select"] as const).map((t) => (
               <ToolButton
@@ -1226,27 +1269,36 @@ function App() {
                     ? "Select / move"
                     : t[0].toUpperCase() + t.slice(1)
                 }
-                aria-pressed={tool === t}
+                aria-pressed={!hand && tool === t}
                 disabled={locked}
-                className={tool === t ? "selected" : ""}
-                onClick={() => setTool(t)}
+                className={!hand && tool === t ? "selected" : ""}
+                onClick={() => {
+                  setHand(false);
+                  setTool(t);
+                }}
               />
             ))}
             <ToolButton
               icon="eraser"
               label="Eraser"
               disabled={locked}
-              aria-pressed={tool === "eraser"}
-              className={tool === "eraser" ? "selected" : ""}
-              onClick={() => setTool("eraser")}
+              aria-pressed={!hand && tool === "eraser"}
+              className={!hand && tool === "eraser" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("eraser");
+              }}
             />
             <ToolButton
               icon="browse"
               label="Browse dates"
               disabled={locked}
-              aria-pressed={tool === "browse"}
-              className={tool === "browse" ? "selected" : ""}
-              onClick={() => setTool("browse")}
+              aria-pressed={!hand && tool === "browse"}
+              className={!hand && tool === "browse" ? "selected" : ""}
+              onClick={() => {
+                setHand(false);
+                setTool("browse");
+              }}
             />
             <span className="divider" />
             <div className="dock-palette" role="group" aria-label="Colors">
@@ -1263,6 +1315,7 @@ function App() {
                   onClick={() => {
                     if (tool === "highlighter") setHighlighterColor(c);
                     else setInkColor(c);
+                    setHand(false);
                     if (tool !== "pencil" && tool !== "highlighter")
                       setTool("pen");
                   }}
@@ -1371,6 +1424,12 @@ function App() {
               removes whole strokes. Undo and redo follow the order of your
               edits across all pages and panels, even after navigating to
               another spread. They leave your current view in place.
+            </p>
+            <p>
+              Open Zoom in the right toolbar and use + and − to zoom from 100%
+              to 250%. Fit spread shows both pages again. Scroll to reach
+              enlarged pages, or select Hand and drag to move around. Select a
+              writing tool to resume editing.
             </p>
             <p>
               In Safari, open Share → Add to Home Screen. Open the installed
