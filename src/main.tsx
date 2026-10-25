@@ -20,7 +20,7 @@ import {
   type Insert,
   initialView,
   pageIds,
-  moveView,
+  turnDestination,
   parseDate,
   MONTHS,
   validView,
@@ -238,16 +238,7 @@ function App() {
   function turnPage(direction: number) {
     if (lock()) return;
     const current = settingsRef.current;
-    const order = current.order;
-    const index =
-      order?.findIndex((v) => spreadId(v) === spreadId(current.view)) ?? -1;
-    const next =
-      order && index >= 0
-        ? order[index + direction]
-        : moveView(
-            { mode: current.view.mode, date: current.view.date },
-            direction,
-          );
+    const next = turnDestination(current, direction);
     if (!next) return;
     if (!validView(next)) return;
     gesture.current = null;

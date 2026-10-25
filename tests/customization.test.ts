@@ -6,6 +6,7 @@ import {
   pageIds,
   spreadId,
   plannerOrder,
+  turnDestination,
   duplicateSpread,
   translateStrokes,
   validateBackup,
@@ -166,4 +167,58 @@ test("organization transaction migrates legacy content and rolls back failed del
   assert.deepEqual((await loadPlanner()).pages, legacy.pages);
   await replacePlanner(b);
   assert.deepEqual((await loadPlanner()).settings, b.settings);
+});
+
+test("page turning expands both year boundaries and preserves custom organization", () => {
+  for (const direction of [-1, 1]) {
+    const b = customized();
+    const originalOrder = structuredClone(b.settings.order!);
+    let settings = b.settings;
+    for (let crossing = 0; crossing < 3; crossing++) {
+      const order = settings.order!;
+      settings.view = direction > 0 ? order[order.length - 1] : order[0];
+      const edge = settings.view.date;
+      const next = turnDestination(settings, direction)!;
+      assert.ok(next);
+      assert.ok(direction > 0 ? next.date > edge : next.date < edge);
+      settings = { ...settings, view: next };
+      settings.order = plannerOrder(settings);
+      assert.equal(
+        new Set(settings.order.map(spreadId)).size,
+        settings.order.length,
+      );
+      const index = settings.order.findIndex(
+        (v) => spreadId(v) === spreadId(next),
+      );
+      assert.ok(index >= 0);
+      assert.deepEqual(
+        turnDestination(settings, -direction),
+        order[direction > 0 ? order.length - 1 : 0],
+      );
+    }
+    assert.deepEqual(
+      settings.order!.filter((v) =>
+        originalOrder.some((o) => spreadId(o) === spreadId(v)),
+      ),
+      originalOrder,
+    );
+    assert.deepEqual(settings.inserts, b.settings.inserts);
+    assert.deepEqual(settings.bookmarks, b.settings.bookmarks);
+    assert.deepEqual(b.pages[0], legacy.pages[0]);
+  }
+});
+
+test("weekly and monthly turns without custom ordering cross years and leap day", () => {
+  assert.deepEqual(
+    turnDestination({ view: { mode: "week", date: "2027-12-26" } }, 1),
+    { mode: "week", date: "2028-01-02" },
+  );
+  assert.deepEqual(
+    turnDestination({ view: { mode: "week", date: "2028-01-02" } }, -1),
+    { mode: "week", date: "2027-12-26" },
+  );
+  assert.deepEqual(
+    turnDestination({ view: { mode: "week", date: "2028-02-27" } }, 1),
+    { mode: "week", date: "2028-03-05" },
+  );
 });

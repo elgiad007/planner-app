@@ -321,10 +321,51 @@ export function plannerOrder(settings: Settings): View[] {
     generated.sort(
       (a, b) => a.date.localeCompare(b.date) || a.mode.localeCompare(b.mode),
     );
-    for (const v of generated)
-      if (!order.some((o) => spreadId(o) === spreadId(v))) order.push(v);
+    const missing = generated.filter(
+      (v) => !order.some((o) => spreadId(o) === spreadId(v)),
+    );
+    const calendar = order.filter((v) => !v.insert);
+    if (
+      calendar.length &&
+      missing.length &&
+      missing.every((v) => calendar.every((o) => o.date > v.date))
+    )
+      order.unshift(...missing);
+    else order.push(...missing);
   }
   return order;
+}
+export function turnDestination(
+  settings: Settings,
+  direction: number,
+): View | undefined {
+  const order = settings.order;
+  const index =
+    order?.findIndex((v) => spreadId(v) === spreadId(settings.view)) ?? -1;
+  if (!order || index < 0)
+    return moveView(
+      { mode: settings.view.mode, date: settings.view.date },
+      direction,
+    );
+  const neighbor = order[index + direction];
+  if (neighbor) return neighbor;
+  const dates = order
+    .filter((v) => !v.insert)
+    .map((v) => v.date)
+    .sort();
+  if (!dates.length) return;
+  const edge = direction > 0 ? dates[dates.length - 1] : dates[0];
+  // A year's first weekly spread can begin in December of the previous year.
+  const boundary =
+    direction > 0
+      ? moveView({ mode: "month", date: edge }, 1)
+      : moveView({ mode: "week", date: edge }, -1);
+  if (!validView(boundary)) return;
+  const expanded = plannerOrder({ ...settings, view: boundary });
+  const added = expanded.filter(
+    (v) => !order.some((o) => spreadId(o) === spreadId(v)),
+  );
+  return direction > 0 ? added[0] : added[added.length - 1];
 }
 export function duplicateSpread(
   view: View,

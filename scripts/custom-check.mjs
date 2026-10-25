@@ -222,6 +222,69 @@ try {
     ),
     false,
   );
+  // Saved organization must grow when a turn reaches either end of the book.
+  const boundaryBaseline = await snapshot();
+  for (const direction of [1, -1]) {
+    for (let crossing = 0; crossing < 2; crossing++) {
+      const before = await snapshot();
+      const order = before.settings.order;
+      const edge = direction > 0 ? order[order.length - 1] : order[0];
+      const id = edge.insert
+        ? `custom:${edge.insert}`
+        : `${edge.mode}:${edge.date}`;
+      await open(id);
+      await button("Close pages").click();
+      if (direction > 0 && crossing === 0) {
+        const cdp = await context.newCDPSession(page);
+        const r = await page
+          .locator(".book > .page canvas")
+          .first()
+          .boundingBox();
+        const y = r.y + r.height / 2;
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [{ x: r.x + 260, y }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: r.x + 100, y }],
+        });
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+        });
+        await cdp.detach();
+      } else {
+        await button(direction > 0 ? "Next spread" : "Previous spread").click();
+      }
+      await page.waitForFunction(() => !document.querySelector(".page-turn"));
+      await saved();
+      const after = await snapshot();
+      assert.ok(
+        direction > 0
+          ? after.settings.view.date > edge.date
+          : after.settings.view.date < edge.date,
+      );
+      assert.ok(after.settings.order.length > order.length);
+      assert.deepEqual(after.pages, boundaryBaseline.pages);
+      assert.deepEqual(
+        after.settings.bookmarks,
+        boundaryBaseline.settings.bookmarks,
+      );
+      await button(direction > 0 ? "Previous spread" : "Next spread").click();
+      await page.waitForFunction(() => !document.querySelector(".page-turn"));
+      await saved();
+      assert.deepEqual((await snapshot()).settings.view, edge);
+      await button("Pages & bookmarks").click();
+    }
+  }
+  const boundaryResult = await snapshot();
+  await page.reload();
+  await saved();
+  assert.deepEqual(
+    (await snapshot()).settings.order,
+    boundaryResult.settings.order,
+  );
   assert.deepEqual(errors, []);
   console.log(
     "Phase 3 browser checks passed: five templates, tools, segment selection, movement/undo, duplicate independence, saved ordering, animation, bookmarks, delete confirmation and backup restoration.",
