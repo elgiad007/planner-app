@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $distPath = Join-Path $projectRoot 'dist'
 $releasePath = Join-Path $projectRoot 'release'
-$archivePath = Join-Path $releasePath 'my-pastel-planner-phase4.zip'
+$archivePath = $null
 $temporaryArchive = Join-Path $releasePath ('build-' + [guid]::NewGuid().ToString('N') + '.zip')
 
 $timer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -16,6 +16,12 @@ $locationPushed = $false
 $failureMessage = $null
 $originalPath = $env:Path
 try {
+    $package = Get-Content -Raw -LiteralPath (Join-Path $projectRoot 'package.json') | ConvertFrom-Json
+    $version = [string]$package.version
+    if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+        throw 'package.json must contain a valid release version for the ZIP filename.'
+    }
+    $archivePath = Join-Path $releasePath "my-pastel-planner-v$version.zip"
     Write-Host "`nMy Pastel Planner - Update release" -ForegroundColor Cyan
     Write-Host "Source: $projectRoot"
     Write-Host "`nLocating Node.js and pnpm..." -ForegroundColor Cyan
