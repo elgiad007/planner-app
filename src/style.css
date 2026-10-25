@@ -128,6 +128,12 @@ main {
 .book-wrap {
   padding: 0 45px 10px 8px;
 }
+.book,
+.book * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 .book {
   position: relative;
   display: flex;

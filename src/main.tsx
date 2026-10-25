@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useRef, useState } from "react";
 import { Ink } from "./Ink";
+import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
 import { loadPlanner, savePage, saveSettings, replacePlanner } from "./storage";
 import {
@@ -53,6 +54,7 @@ function App() {
     pending = useRef(0),
     failed = useRef(false),
     queue = useRef<Promise<void>>(Promise.resolve());
+  const book = useWritingGuard(tool !== "browse" && !operation && ready);
   const histories = useRef<
     Record<string, { past: Stroke[][]; future: Stroke[][] }>
   >({});
@@ -421,7 +423,7 @@ function App() {
           </button>
         </div>
         <div className="book-wrap">
-          <div className="book">
+          <div className="book" ref={book}>
             <div className="paper-stack" />
             {ids.map((id, side) => (
               <div className={"page page-" + side} key={id}>

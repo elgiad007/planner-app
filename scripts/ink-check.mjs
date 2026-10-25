@@ -15,6 +15,63 @@ try {
   await ink.waitFor();
   const rect = await ink.boundingBox();
   const next = page.getByRole("button", { name: "Next spread" });
+  const heading = page.locator(".page .template h1").first();
+  assert.equal(
+    await page
+      .locator(".book")
+      .evaluate((root) =>
+        [root, ...root.querySelectorAll("*")].every(
+          (el) => getComputedStyle(el).userSelect === "none",
+        ),
+      ),
+    true,
+  );
+  for (const type of ["selectstart", "contextmenu", "dblclick", "touchstart"]) {
+    assert.equal(
+      await heading.evaluate((el, type) => {
+        const e = new Event(type, { bubbles: true, cancelable: true });
+        el.dispatchEvent(e);
+        return e.defaultPrevented;
+      }, type),
+      true,
+      `${type} must be suppressed on paper in pen mode`,
+    );
+  }
+  // Even a selection injected programmatically must be removed from the paper.
+  assert.equal(
+    await heading.evaluate((el) => {
+      const e = new Event("selectstart", { bubbles: true, cancelable: true });
+      el.firstChild.dispatchEvent(e);
+      return e.defaultPrevented;
+    }),
+    true,
+    "selection starting at a text node must also be suppressed",
+  );
+  await heading.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    getSelection().addRange(range);
+  });
+  await page.waitForFunction(() => getSelection().isCollapsed);
+  // Selection elsewhere in the document must remain usable.
+  await page.evaluate(() => {
+    const el = document.createElement("p");
+    el.id = "selection-fixture";
+    el.textContent = "Outside planner selection";
+    document.body.append(el);
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    getSelection().addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+  });
+  assert.equal(
+    await page.evaluate(() => getSelection().toString()),
+    "Outside planner selection",
+  );
+  await page.evaluate(() => {
+    getSelection().removeAllRanges();
+    document.querySelector("#selection-fixture").remove();
+  });
   async function event(type, id = 51, extra = {}, target = ink) {
     await target.dispatchEvent(type, {
       pointerId: id,
@@ -159,8 +216,30 @@ try {
   );
   await event("pointerup");
   for (let i = 0; i < 20; i++) {
-    await event("pointerdown", 80 + i);
-    await event("pointerup", 80 + i);
+    // iPad can reuse a pen ID across successive contacts.
+    await event("pointerdown", 51);
+    await ink.evaluate((c) => {
+      Object.defineProperty(c, "hasPointerCapture", {
+        configurable: true,
+        value: () => true,
+      });
+      c.dispatchEvent(
+        new PointerEvent("lostpointercapture", {
+          pointerId: 51,
+          pointerType: "pen",
+          bubbles: true,
+        }),
+      );
+      delete c.hasPointerCapture;
+    });
+    assert.equal(
+      await next.isDisabled(),
+      true,
+      "delayed capture loss must not end a recaptured stroke",
+    );
+    await event("pointermove", 51, { clientX: rect.x + 100 });
+    await ink.dispatchEvent("dblclick", { bubbles: true, cancelable: true });
+    await event("pointerup", 51);
   }
   await event("pointerdown");
   await event("pointerdown", 60, {}, page.locator("canvas").nth(1));
@@ -176,6 +255,20 @@ try {
   await page.reload();
   await ink.waitFor();
   assert.deepEqual(await backup(), saved);
+  await page.getByRole("button", { name: "Browse dates", exact: true }).click();
+  assert.equal(
+    await heading.evaluate((el) => {
+      const e = new Event("touchstart", { bubbles: true, cancelable: true });
+      el.dispatchEvent(e);
+      return e.defaultPrevented;
+    }),
+    false,
+    "Browse mode must release touch suppression",
+  );
+  await page
+    .getByRole("button", { name: "Open week of 2027-01-01", exact: true })
+    .click();
+  await page.getByRole("heading", { name: "Dec 27 — Jan 2" }).first().waitFor();
   assert.deepEqual(errors, []);
   console.log(
     "Ink checks passed: recovery, cancellation, palm exclusion, resize, incremental rendering, coalesced samples, rapid lifts, persistence.",

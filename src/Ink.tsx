@@ -100,13 +100,14 @@ export function Ink({
       pressure: e.pressure > 0 ? e.pressure : 0.5,
     };
   }
-  function finish(id?: number) {
+  function finish(id?: number, releaseCapture = true) {
     const a = active.current;
     if (!a || (id !== undefined && a.id !== id)) return;
     // Clear before releasing capture, which may dispatch lostpointercapture.
     active.current = null;
     const c = canvas.current;
-    if (c?.hasPointerCapture(a.id)) c.releasePointerCapture(a.id);
+    if (releaseCapture && c?.hasPointerCapture(a.id))
+      c.releasePointerCapture(a.id);
     const next = a.eraser ? a.remaining : [...a.original, a.stroke];
     latest.current = next;
     callbacks.current.onBusy(false);
@@ -153,7 +154,8 @@ export function Ink({
         }
       }
     }
-    finish(e.pointerId);
+    // Up/cancel release capture automatically; avoid an extra release request.
+    finish(e.pointerId, false);
   }
   useLayoutEffect(() => {
     const c = canvas.current!;
@@ -241,7 +243,14 @@ export function Ink({
       className={"ink " + (!enabled ? "browse" : "")}
       aria-label="Handwriting surface: use Apple Pencil, or a mouse for desktop testing"
       onPointerDown={down}
-      onLostPointerCapture={(e) => finish(e.pointerId)}
+      onLostPointerCapture={(e) => {
+        // Ignore delayed loss notifications if this pointer has already been recaptured.
+        if (
+          !e.currentTarget.hasPointerCapture(e.pointerId) &&
+          active.current?.type === e.pointerType
+        )
+          finish(e.pointerId, false);
+      }}
       onContextMenu={(e) => e.preventDefault()}
     />
   );

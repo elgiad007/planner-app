@@ -40,4 +40,16 @@ If the symptom remains, record iPadOS version, Pencil model, Safari versus Home 
 
 ## Validation record
 
+### Follow-up: rapid contacts and native selection
+
+The first fix did not resolve real-iPad printing: continuous strokes worked, but repeated pen lifts often stopped input. A user screenshot showed native blue selection handles and the Copy/Look Up menu. This confirms native selection occurred; it does not prove selection was the only cause of missing input.
+
+The follow-up protects the entire book and all descendants with Safari and standard no-selection CSS and disables touch callouts there. While writing, native capture listeners on the book cancel selection-start, context menus, double-click defaults and touch-start defaults on the paper. The touch listener is explicitly non-passive. These listeners do not handle drawing or create duplicate ink; Pointer Events remain the drawing path. Paper selections are cleared on pen contact and selection changes. Selection outside the paper is preserved. Browse dates releases the event guards, and date buttons remain usable.
+
+Pointer up/cancel now rely on the browser's automatic capture release. Delayed lost-capture notifications are ignored when that pointer already has capture again, protecting rapid reuse of the same pen ID. Genuine capture loss still saves partial ink and unlocks writing.
+
+Regression checks cover the selection CSS across all book elements, cancelable selection/touch/menu gestures, clearing injected paper selection, retaining selection outside the planner, repeated contacts with a reused pen ID, simulated stale capture loss, and date navigation after switching to Browse. Synthetic desktop events cannot establish native iPad gesture behavior; retest printing and rapid taps in Safari and the Home Screen app after deploying this follow-up.
+
+The release ZIP is rebuilt from the final `dist` contents, including `.htaccess`, and checked entry-by-entry against that build. Extract it directly into the domain document root. Keep a downloaded handwriting backup and use **Save and update**; do not clear website data.
+
 Production build/type checking and all five unit tests passed. The existing Edge browser suite and new synthetic pen suite passed locally on 2026-10-25. Real-iPad acceptance and deployment remain outstanding.
