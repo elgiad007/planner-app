@@ -392,6 +392,9 @@ main {
   height: 100%;
   z-index: 3;
   touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .ink.browse {
   pointer-events: none;

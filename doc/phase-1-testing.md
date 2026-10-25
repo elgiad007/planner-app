@@ -10,6 +10,8 @@ Verified on 2026-10-25: TypeScript/production build passed; all five automated t
 
 ## Real iPad acceptance checklist
 
+The 2026-10-25 handwriting reliability changes and focused regression checks are documented in [iPad handwriting reliability fix](ipad-handwriting-fix.md). Run `pnpm test:ink` against the production preview alongside `pnpm test:browser`; real-iPad retesting is still required.
+
 - Install the production build from HTTPS on Kim's 13-inch iPad Pro with Pencil Pro.
 - Confirm the pages, six rings, twelve tabs and controls fit landscape comfortably; inspect portrait and any display scaling she uses.
 - Write short/long strokes, tiny letters and dots, varying pressure. Check latency, sharpness and alignment across both pages and after resizing.

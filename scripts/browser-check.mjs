@@ -14,13 +14,13 @@ const page = await context.newPage(),
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("dialog", (dialog) => dialog.accept());
 try {
-  await page.goto("http://127.0.0.1:4173/");
+  await page.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
   await page.getByRole("heading", { name: "January 2027" }).first().waitFor();
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   const second = await context.newPage();
-  await second.goto("http://127.0.0.1:4173/");
+  await second.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
   await second.getByRole("alert").filter({ hasText: "already open" }).waitFor();
   await second.close();
   const ink = page.locator("canvas").first(),
