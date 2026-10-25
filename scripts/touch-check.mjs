@@ -1,6 +1,6 @@
+import { downloadBackup, openDock } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 try {
@@ -32,9 +32,8 @@ try {
       await touch("touchEnd", []);
     }
     async function backup() {
-      const download = page.waitForEvent("download");
-      await page.getByRole("button", { name: "Download backup" }).click();
-      return JSON.parse(await readFile(await (await download).path(), "utf8"));
+      const data = await downloadBackup(page);
+      return data;
     }
     const strokes = (data) => data.pages.flatMap((p) => p.strokes);
     await draw();
@@ -43,8 +42,10 @@ try {
       name: "Finger writing",
       exact: true,
     });
+    await openDock(page, "Tool settings");
     await toggle.tap();
     assert.equal(await toggle.getAttribute("aria-pressed"), "true");
+    await page.keyboard.press("Escape");
     await draw();
     let saved = await backup();
     assert.equal(strokes(saved).length, 1);
@@ -64,6 +65,14 @@ try {
     await touch("touchMove", [{ ...first, x: x + 15 }, second]);
     await touch("touchEnd", []);
     assert.equal(strokes(await backup()).length, 2);
+    if (
+      await page
+        .getByRole("button", { name: "Expand writing tools", exact: true })
+        .isVisible()
+    )
+      await page
+        .getByRole("button", { name: "Expand writing tools", exact: true })
+        .tap();
     await page.getByRole("button", { name: "Undo", exact: true }).tap();
     assert.equal(strokes(await backup()).length, 1);
     await page.getByRole("button", { name: "Redo", exact: true }).tap();
@@ -77,8 +86,10 @@ try {
     await page.reload();
     await ink.waitFor();
     assert.deepEqual((await backup()).pages, saved.pages);
+    await openDock(page, "Tool settings");
     assert.equal(await toggle.getAttribute("aria-pressed"), "false");
     await toggle.tap();
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Browse dates", exact: true }).tap();
     await page
       .getByRole("button", { name: "Open week of 2027-01-01", exact: true })

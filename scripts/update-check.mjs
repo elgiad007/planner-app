@@ -1,3 +1,4 @@
+import { downloadBackup } from "./dock-helpers.mjs";
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -57,13 +58,7 @@ try {
     .getByRole("status")
     .filter({ hasText: "Backup restored and saved" })
     .waitFor();
-  const restoredDownload = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Download backup", exact: true })
-    .click();
-  const restored = JSON.parse(
-    await readFile(await (await restoredDownload).path(), "utf8"),
-  );
+  const restored = await downloadBackup(page);
   assert.deepEqual(restored.pages, backup.pages);
 
   await page.evaluate(() => {

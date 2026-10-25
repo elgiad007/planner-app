@@ -31,6 +31,7 @@ export function ToolButton({
       {...props}
       className={`tool-button ${className}`}
       aria-label={label}
+      title={hint ?? label}
     >
       <svg
         viewBox="0 0 24 24"
