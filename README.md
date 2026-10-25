@@ -10,4 +10,6 @@ pnpm dev
 
 Build with `pnpm build`, test with `pnpm test`, and serve the production build with `pnpm preview`. Upload only the contents of `dist/` to the domain root.
 
+On Windows, double-click `start-test-server.cmd` to test current source locally. It opens your browser and refreshes changes automatically. Keep the server window open and press Ctrl+C to stop. Nothing is uploaded.
+
 See [documentation](doc/README.md), [hosting instructions](doc/running-and-hosting.md), and the [Phase 4 acceptance checklist](doc/phase-4-testing.md). Real-iPad acceptance remains required. No deployment has been performed.
