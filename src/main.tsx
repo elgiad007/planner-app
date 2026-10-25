@@ -56,10 +56,10 @@ function App() {
     failed = useRef(false),
     queue = useRef<Promise<void>>(Promise.resolve());
   const book = useWritingGuard(tool !== "browse" && !operation && ready);
-  const histories = useRef<
-    Record<string, { past: Stroke[][]; future: Stroke[][] }>
-  >({});
-  const [, refresh] = useState(0);
+  const history = useRef<{ past: Page[]; future: Page[] }>({
+    past: [],
+    future: [],
+  });
   const input = useRef<HTMLInputElement>(null);
   const view = settings.view,
     ids = pageIds(view);
@@ -197,11 +197,11 @@ function App() {
     setSettings(s);
     persist(() => saveSettings(s));
   }
-  function changePage(id: string, strokes: Stroke[], history = true) {
+  function changePage(id: string, strokes: Stroke[], recordHistory = true) {
     const before = pagesRef.current[id]?.strokes ?? [];
-    if (history) {
-      const h = (histories.current[id] ??= { past: [], future: [] });
-      h.past.push(before);
+    if (recordHistory) {
+      const h = history.current;
+      h.past.push({ id, strokes: before });
       if (h.past.length > 40) h.past.shift();
       h.future = [];
     }
@@ -213,22 +213,18 @@ function App() {
   }
   function undo(redo = false) {
     if (lock()) return;
-    const id = target,
-      h = histories.current[id];
-    if (!h) return;
+    const h = history.current;
     const from = redo ? h.future : h.past,
       to = redo ? h.past : h.future;
     const next = from.pop();
     if (next) {
-      to.push(pagesRef.current[id]?.strokes ?? []);
-      changePage(id, next, false);
-      refresh((n) => n + 1);
+      to.push({
+        id: next.id,
+        strokes: pagesRef.current[next.id]?.strokes ?? [],
+      });
+      changePage(next.id, next.strokes, false);
     }
   }
-  const lastPage = useRef<string | null>(null);
-  const target = ids.includes(lastPage.current ?? "")
-    ? lastPage.current!
-    : ids[0];
   async function exclusive(work: () => Promise<void>) {
     if (lock()) return;
     opRef.current = true;
@@ -292,7 +288,7 @@ function App() {
       settingsRef.current = data.settings;
       setPages(p);
       setSettings(data.settings);
-      histories.current = {};
+      history.current = { past: [], future: [] };
       failed.current = false;
       setError("");
       setStatus("Backup restored and saved");
@@ -446,7 +442,6 @@ function App() {
                       setBusy(value);
                     }}
                     onChange={(strokes) => {
-                      lastPage.current = id;
                       changePage(id, strokes);
                     }}
                   />
@@ -570,13 +565,13 @@ function App() {
                 />
               </label>
               <button
-                disabled={locked || !histories.current[target]?.past.length}
+                disabled={locked || !history.current.past.length}
                 onClick={() => undo()}
               >
                 Undo
               </button>
               <button
-                disabled={locked || !histories.current[target]?.future.length}
+                disabled={locked || !history.current.future.length}
                 onClick={() => undo(true)}
               >
                 Redo
@@ -645,8 +640,9 @@ function App() {
               when using Apple Pencil to prevent palm marks. This option resets
               to off when you reopen the app. Use the tabs and arrow buttons to
               navigate; choose Browse dates to tap a calendar date. Eraser
-              removes whole strokes. Undo and redo apply to the last page you
-              edited in this spread.
+              removes whole strokes. Undo and redo follow the order of your
+              edits across all pages and panels, even after navigating to
+              another spread. They leave your current view in place.
             </p>
             <p>
               In Safari, open Share → Add to Home Screen. Open the installed
