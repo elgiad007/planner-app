@@ -335,6 +335,15 @@ export function plannerOrder(settings: Settings): View[] {
   }
   return order;
 }
+export function restoreOriginalOrder(order: View[]): View[] {
+  const calendar = order
+    .filter((v) => !v.insert)
+    .sort(
+      (a, b) => a.date.localeCompare(b.date) || a.mode.localeCompare(b.mode),
+    );
+  let index = 0;
+  return order.map((v) => (v.insert ? v : calendar[index++]));
+}
 export function turnDestination(
   settings: Settings,
   direction: number,

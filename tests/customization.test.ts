@@ -6,6 +6,7 @@ import {
   pageIds,
   spreadId,
   plannerOrder,
+  restoreOriginalOrder,
   turnDestination,
   duplicateSpread,
   translateStrokes,
@@ -117,6 +118,40 @@ test("reordering keeps identities, adds missing years and never duplicates calen
   assert.equal(order[8], first);
   assert.deepEqual(b.pages[0], legacy.pages[0]);
 });
+test("restoring original order sorts all calendar years and keeps custom slots and data", async () => {
+  const b = customized();
+  b.settings.order = plannerOrder({
+    ...b.settings,
+    view: { mode: "month", date: "2028-01-01" },
+  });
+  const original = [...b.settings.order];
+  const calendar = original.filter((v) => !v.insert);
+  const reversed = [...calendar].reverse();
+  let index = 0;
+  b.settings.order = original.map((v) => (v.insert ? v : reversed[index++]));
+  const before = structuredClone(b);
+  const restored = restoreOriginalOrder(b.settings.order);
+  assert.deepEqual(
+    restored.filter((v) => !v.insert),
+    calendar.sort(
+      (a, b) => a.date.localeCompare(b.date) || a.mode.localeCompare(b.mode),
+    ),
+  );
+  original.forEach((v, i) => {
+    if (v.insert) assert.equal(restored[i], v);
+  });
+  assert.deepEqual(b, before);
+  assert.deepEqual(restoreOriginalOrder(restored), restored);
+  await replacePlanner({ ...b, settings: { ...b.settings, order: restored } });
+  const saved = await loadPlanner();
+  assert.deepEqual(saved.settings, { ...b.settings, order: restored });
+  assert.deepEqual(
+    saved.pages.sort((a, b) => a.id.localeCompare(b.id)),
+    b.pages.sort((a, b) => a.id.localeCompare(b.id)),
+  );
+  assert.deepEqual(restoreOriginalOrder([]), []);
+});
+
 test("selected strokes move as a group within paper bounds without mutating originals", () => {
   const list = [
     structuredClone(stroke),

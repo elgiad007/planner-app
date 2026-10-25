@@ -14,6 +14,7 @@ import {
 import {
   INSERTS,
   plannerOrder,
+  restoreOriginalOrder,
   spreadId,
   spreadTitle,
   duplicateSpread,
@@ -320,7 +321,8 @@ function App() {
     };
   }
   function organizePages(
-    action: "insert" | "duplicate" | "delete" | "bookmark" | "move",
+    action:
+      "insert" | "duplicate" | "delete" | "bookmark" | "move" | "restore-order",
     target?: string,
   ) {
     void exclusive(async () => {
@@ -377,6 +379,8 @@ function App() {
         bookmarks = bookmarks.includes(key)
           ? bookmarks.filter((id) => id !== key)
           : [...bookmarks, key];
+      } else if (action === "restore-order") {
+        order = restoreOriginalOrder(order);
       } else {
         if (!target || target === key) return;
         if (!order.some((v) => spreadId(v) === target)) return;
@@ -395,7 +399,11 @@ function App() {
       setPages(updatedPages);
       setSettings(next);
       setInsertTitle("");
-      setStatus("Saved on this iPad");
+      setStatus(
+        action === "restore-order"
+          ? "Original spread order restored"
+          : "Saved on this iPad",
+      );
     });
   }
   function backup() {
@@ -700,6 +708,17 @@ function App() {
               </div>
 
               <p>Page-turn arrows follow your saved order.</p>
+              <button
+                disabled={locked}
+                onClick={() => organizePages("restore-order")}
+              >
+                Restore original spread order
+              </button>
+              <p>
+                Restores the original month and week sequence. Custom spreads
+                stay in their current slots. Handwriting and bookmarks are
+                preserved.
+              </p>
               <div className="organizer-danger">
                 <button
                   disabled={locked || !view.insert}

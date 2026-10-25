@@ -222,6 +222,38 @@ try {
   assert.deepEqual(reloaded.pages, reordered.pages);
   assert.deepEqual(reloaded.settings.order, reordered.settings.order);
   await button("Pages & bookmarks").click();
+  await open("month:2027-01-01");
+  await page
+    .getByLabel("Move destination", { exact: true })
+    .selectOption("month:2027-12-01");
+  await page.getByLabel("Move position", { exact: true }).selectOption("after");
+  await button("Move spread").click();
+  await saved();
+  const beforeReset = await snapshot();
+  await button("Restore original spread order").click();
+  await saved();
+  const reset = await snapshot();
+  const calendar = beforeReset.settings.order
+    .filter((v) => !v.insert)
+    .sort(
+      (a, b) => a.date.localeCompare(b.date) || a.mode.localeCompare(b.mode),
+    );
+  assert.deepEqual(
+    reset.settings.order.filter((v) => !v.insert),
+    calendar,
+  );
+  beforeReset.settings.order.forEach((v, i) => {
+    if (v.insert) assert.deepEqual(reset.settings.order[i], v);
+  });
+  assert.deepEqual(reset.pages, beforeReset.pages);
+  assert.deepEqual(reset.settings.view, beforeReset.settings.view);
+  assert.deepEqual(reset.settings.inserts, beforeReset.settings.inserts);
+  assert.deepEqual(reset.settings.bookmarks, beforeReset.settings.bookmarks);
+  await page.reload();
+  await heading().waitFor();
+  assert.deepEqual((await snapshot()).settings.order, reset.settings.order);
+  await button("Pages & bookmarks").click();
+  await open(`custom:${reloaded.settings.view.insert}`);
   const deleteButton = button("Delete custom spread");
   page.once("dialog", (d) => d.dismiss());
   await deleteButton.click();
