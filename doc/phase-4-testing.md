@@ -4,7 +4,7 @@ Updated: 2026-10-25. Implemented with Luc's authorization. Desktop review build 
 
 ## Using PDF export
 
-Select **Export PDF**, choose **Current spread** or **Entire binder**, then **Create PDF**. Progress reports completed spreads. After generation, tap **Download PDF** and save it in Files. This separate download action supports browsers that require a direct user gesture. **Cancel PDF** releases the export resources and writing lock at the next page boundary.
+Select **Export PDF**, choose **Current spread** or **Entire binder**, then **Create PDF**. Progress reports completed spreads. After generation, tap **Download PDF** and save it in Files. The export panel closes when you tap the download link; the download continues. Reopen **Export PDF** to access the generated file again during the same app session. This separate download action supports browsers that require a direct user gesture. **Cancel PDF** releases the export resources and writing lock at the next page boundary.
 
 Each PDF sheet contains the left and right paper templates and handwriting. Rings, tabs, selection handles and app controls are omitted. Calendar dates, custom paper and duplicated calendar templates use the same React templates as the planner. Pressure-sensitive pen/pencil and highlighter rendering share the app's drawing helpers. Export uses a fixed 600 x 800 logical page, rasterized at twice that resolution and compressed as JPEG; text and ink in the PDF are flattened visual content, not selectable vector content.
 

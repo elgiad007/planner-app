@@ -131,6 +131,16 @@ try {
     const bytes = await readFile(await (await downloading).path());
     assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
     assert.ok(bytes.length > 30000);
+    await page
+      .getByRole("region", { name: "PDF export", exact: true })
+      .waitFor({ state: "hidden" });
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Export PDF", exact: true })
+        .getAttribute("aria-expanded"),
+      "false",
+    );
+    await page.getByRole("button", { name: "Export PDF", exact: true }).click();
     await writeFile(`test-results/${name}.pdf`, bytes);
     return bytes;
   }

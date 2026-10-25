@@ -1286,7 +1286,11 @@ function App() {
               </button>
             )}
             {pdfFile && (
-              <a href={pdfFile.url} download={pdfFile.name}>
+              <a
+                href={pdfFile.url}
+                download={pdfFile.name}
+                onClick={() => setPdfPanel(false)}
+              >
                 Download PDF
               </a>
             )}
