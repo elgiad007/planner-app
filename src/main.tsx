@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useRef, useState } from "react";
+import { ToolButton } from "./ToolButton";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
@@ -990,60 +991,63 @@ function App() {
       </div>
       <div className="bottom">
         <div className="toolbar" aria-label="Writing tools">
-          <button
+          <ToolButton
             disabled={locked}
-            aria-label={
-              expanded ? "Collapse writing tools" : "Expand writing tools"
-            }
+            icon={expanded ? "collapse" : "expand"}
+            label={expanded ? "Collapse writing tools" : "Expand writing tools"}
             onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? "−" : "+"}
-          </button>
+          ></ToolButton>
           {expanded && (
             <>
-              <button
+              <ToolButton
+                icon="pen"
+                label="Pen"
                 disabled={locked}
+                aria-pressed={tool === "pen"}
                 className={tool === "pen" ? "selected" : ""}
                 onClick={() => setTool("pen")}
-              >
-                Pen
-              </button>
+              />
               {(["highlighter", "pencil", "select"] as const).map((t) => (
-                <button
+                <ToolButton
                   key={t}
+                  icon={t}
+                  label={
+                    t === "select"
+                      ? "Select / move"
+                      : t[0].toUpperCase() + t.slice(1)
+                  }
+                  aria-pressed={tool === t}
                   disabled={locked}
                   className={tool === t ? "selected" : ""}
                   onClick={() => setTool(t)}
-                >
-                  {t === "select"
-                    ? "Select / move"
-                    : t[0].toUpperCase() + t.slice(1)}
-                </button>
+                />
               ))}
-              <button
+              <ToolButton
+                icon="eraser"
+                label="Eraser"
                 disabled={locked}
+                aria-pressed={tool === "eraser"}
                 className={tool === "eraser" ? "selected" : ""}
                 onClick={() => setTool("eraser")}
-              >
-                Eraser
-              </button>
-              <button
+              />
+              <ToolButton
+                icon="browse"
+                label="Browse dates"
                 disabled={locked}
+                aria-pressed={tool === "browse"}
                 className={tool === "browse" ? "selected" : ""}
                 onClick={() => setTool("browse")}
-              >
-                Browse dates
-              </button>
+              />
               <span className="divider" />
-              <button
+              <ToolButton
+                icon="finger"
+                label="Finger writing"
                 disabled={locked}
                 aria-pressed={fingerWriting}
                 className={fingerWriting ? "selected" : ""}
                 onClick={() => setFingerWriting(!fingerWriting)}
-                title="Enable touch input for fingers or touch styluses. Turn off when using a pen for palm protection."
-              >
-                Finger writing
-              </button>
+                hint="Finger writing: Enable touch input for fingers or touch styluses. Turn off when using a pen for palm protection."
+              />
               {palette.map(({ color: c, name }) => (
                 <button
                   key={c}
@@ -1083,18 +1087,18 @@ function App() {
                   }}
                 />
               </label>
-              <button
+              <ToolButton
+                icon="undo"
+                label="Undo"
                 disabled={locked || !history.current.past.length}
                 onClick={() => undo()}
-              >
-                Undo
-              </button>
-              <button
+              />
+              <ToolButton
+                icon="redo"
+                label="Redo"
                 disabled={locked || !history.current.future.length}
                 onClick={() => undo(true)}
-              >
-                Redo
-              </button>
+              />
             </>
           )}
         </div>

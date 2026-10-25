@@ -784,3 +784,54 @@ main {
     padding: 14px;
   }
 }
+
+/* Compact writing controls with mouse and keyboard labels. */
+.toolbar .tool-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 9px;
+  flex-shrink: 0;
+}
+.tool-button svg {
+  width: 22px;
+  height: 22px;
+}
+.tool-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(240px, 80vw);
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: #514361;
+  color: white;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  visibility: hidden;
+  z-index: 20;
+}
+.tool-button:focus-visible .tool-tooltip {
+  visibility: visible;
+}
+@media (hover: hover) {
+  .tool-button:hover .tool-tooltip {
+    visibility: visible;
+  }
+}
+.toolbar .tool-button:first-child .tool-tooltip {
+  left: 0;
+  transform: none;
+}
+.toolbar .tool-button:last-child .tool-tooltip {
+  left: auto;
+  right: 0;
+  transform: none;
+}
