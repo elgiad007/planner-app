@@ -22,9 +22,15 @@ Open http://127.0.0.1:4173 on the same computer. A plain HTTP LAN address is not
 
 To rebuild `dist/` from the current source and refresh the release ZIP, run:
 
+On Windows, double-click `update-release.cmd` in the repository root. The launcher keeps the window open until you press a key, even if PowerShell fails to start the script. It uses Windows PowerShell with an execution-policy override for that process only; it does not change your saved execution policy. For unattended use, run `update-release.cmd -NoPause`.
+
+Alternatively, from a PowerShell terminal:
+
 ```powershell
 pwsh -File ./scripts/update-release.ps1
 ```
+
+The script displays the selected Node.js and pnpm paths. It prefers tools installed on PATH and falls back to Codex's bundled runtime under your Windows user profile when available. Any PATH additions apply only during the script run; your saved Windows PATH is unchanged. If neither location provides the required tools, the results show setup guidance.
 
 Numbered stages and live build output show progress. The final summary displays success or failure, elapsed time, output paths, ZIP size and verified file count. Press Enter after reviewing the results to exit (including after a failure). For unattended runs, use `pwsh -File ./scripts/update-release.ps1 -NoPause`; failures return exit code 1.
 
