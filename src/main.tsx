@@ -52,7 +52,7 @@ function App() {
     [status, setStatus] = useState("Opening planner…"),
     [error, setError] = useState("");
   const [inkColor, setInkColor] = useState("#4b4659"),
-    [highlighterColor, setHighlighterColor] = useState("#ffeb3b"),
+    [highlighterColor, setHighlighterColor] = useState("#ffff00"),
     [width, setWidth] = useState(2.5),
     [fingerWriting, setFingerWriting] = useState(false),
     [tool, setTool] = useState<
@@ -74,12 +74,12 @@ function App() {
   const palette =
     tool === "highlighter"
       ? [
-          { color: "#ffeb3b", name: "Yellow" },
-          { color: "#ff69b4", name: "Pink" },
-          { color: "#4fc3f7", name: "Blue" },
-          { color: "#76e65b", name: "Green" },
-          { color: "#ffad33", name: "Orange" },
-          { color: "#bb86fc", name: "Purple" },
+          { color: "#ffff00", name: "Yellow" },
+          { color: "#ff00a8", name: "Pink" },
+          { color: "#00bfff", name: "Blue" },
+          { color: "#39ff14", name: "Green" },
+          { color: "#ff8000", name: "Orange" },
+          { color: "#bf00ff", name: "Purple" },
         ]
       : ["#4b4659", "#986077", "#6c628d", "#557961", "#ad7554", "#467c91"].map(
           (color) => ({ color, name: color }),
