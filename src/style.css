@@ -576,6 +576,21 @@ main {
   box-shadow: 0 20px 80px #32233d44;
   line-height: 1.65;
 }
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.shortcut-table th,
+.shortcut-table td {
+  text-align: left;
+  padding: 0.35rem;
+  border-bottom: 1px solid #ddd;
+}
+.shortcut-table kbd {
+  font: inherit;
+  font-weight: 600;
+}
 .help h2 {
   font:
     27px Georgia,

@@ -1,6 +1,8 @@
 # My Pastel Planner
 A web app to emulate a DayTimer planner.
 
+Use `?` to open Help with the full [keyboard shortcut list](doc/keyboard-shortcuts.md), including navigation, tool selection, undo/redo, zoom, and temporary panning.
+
 An offline-capable React/TypeScript iPad planner with monthly/weekly pages, vector ink, IndexedDB saving and JSON backup/restore. Includes custom two-page inserts, page organization, bookmarks, highlighter, pencil-style ink, stroke selection/movement and animated page curls. Phase 4 adds offline PDF export, coalesced saves, validated local records, additive backup migrations and recovery controls.
 
 ```sh

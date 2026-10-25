@@ -39,6 +39,26 @@ export function DockMenu({
         role="dialog"
         aria-label={label}
         onToggle={(event) => setOpen(event.newState === "open")}
+        onKeyDown={(event) => {
+          if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+          if (
+            (event.target as Element).closest(
+              "input, select, textarea, [contenteditable]",
+            )
+          )
+            return;
+          const controls = Array.from(
+            event.currentTarget.querySelectorAll<HTMLElement>(
+              "button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]",
+            ),
+          );
+          const index = controls.indexOf(document.activeElement as HTMLElement);
+          event.preventDefault();
+          controls[
+            (index + (event.key === "ArrowDown" ? 1 : -1) + controls.length) %
+              controls.length
+          ]?.focus();
+        }}
       >
         <header className="dock-panel-heading">
           <strong>{label}</strong>

@@ -4,6 +4,7 @@ Keep project decisions and useful operating instructions here so they remain ava
 
 - [Implementation plan](implementation-plan.md)
 - [Data storage and backups](data-storage.md)
+- [Keyboard shortcuts](keyboard-shortcuts.md)
 - [Running, hosting, and updating](running-and-hosting.md)
 - [Phase 1 testing and current limits](phase-1-testing.md)
 - [Phase 2 page turning and iPad acceptance](phase-2-testing.md)

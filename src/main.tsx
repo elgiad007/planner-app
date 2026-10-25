@@ -5,6 +5,7 @@ import { SaveQueue } from "./saveQueue";
 import { SpreadViewport } from "./SpreadViewport";
 import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
+import { SHORTCUTS, TOOL_KEYS } from "./shortcuts";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
@@ -122,9 +123,12 @@ function App() {
       );
     });
   const [hand, setHand] = useState(false);
+  const [spacePan, setSpacePan] = useState(false);
+  const [selectionReset, setSelectionReset] = useState(0);
+  const dateInput = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState(100);
   const book = useWritingGuard(
-    !hand && tool !== "browse" && !operation && ready,
+    !hand && !spacePan && tool !== "browse" && !operation && ready,
   );
   const history = useRef<{ past: Page[]; future: Page[] }>({
     past: [],
@@ -598,6 +602,124 @@ function App() {
       worker.postMessage("ACTIVATE");
     });
   }
+  useEffect(() => {
+    const release = () => setSpacePan(false);
+    const keyup = (e: KeyboardEvent) => {
+      if (e.code === "Space") release();
+    };
+    const visibility = () => {
+      if (document.hidden) release();
+    };
+    window.addEventListener("keyup", keyup);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.removeEventListener("keyup", keyup);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, []);
+  useEffect(() => {
+    if (!help) return;
+    setSpacePan(false);
+    const previous = document.activeElement;
+    document
+      .querySelectorAll<HTMLElement>("[popover]:popover-open")
+      .forEach((panel) => panel.hidePopover());
+    document.querySelector<HTMLElement>(".help")?.focus();
+    return () => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    };
+  }, [help]);
+  useEffect(() => {
+    const keydown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || !ready || fatal) return;
+      if (help) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setHelp(false);
+        }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          document.querySelector<HTMLButtonElement>(".help button")?.focus();
+        }
+        return;
+      }
+      const target = e.target instanceof Element ? e.target : null;
+      if (e.key === "Escape") {
+        const popover = document.querySelector<HTMLElement>(
+          "[popover]:popover-open",
+        );
+        if (popover) {
+          e.preventDefault();
+          popover.hidePopover();
+          return;
+        }
+      }
+      // Preserve text editing, native form controls, and browser/OS shortcuts.
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+        )
+      )
+        return;
+      if (lock()) return;
+      const key = e.key.toLowerCase();
+      if (e.altKey) return;
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "z" || key === "y") {
+          e.preventDefault();
+          if (!e.repeat) undo(key === "y" || e.shiftKey);
+        }
+        return;
+      }
+      if (e.key === " " && !target?.closest("button, a, [role='button']")) {
+        e.preventDefault();
+        setSpacePan(true);
+        return;
+      }
+      const actions: Record<string, () => void> = {
+        arrowleft: () => turnPage(-1),
+        arrowright: () => turnPage(1),
+        t: today,
+        home: () => navigate(initialView),
+        m: () => navigate({ mode: "month", date: view.date }),
+        w: () => navigate({ mode: "week", date: view.date }),
+        g: () => {
+          const input = dateInput.current;
+          input?.closest<HTMLElement>("[popover]")?.showPopover();
+          input?.focus();
+        },
+        "+": () => setZoom((z) => Math.min(250, z + 25)),
+        "=": () => setZoom((z) => Math.min(250, z + 25)),
+        "-": () => setZoom((z) => Math.max(100, z - 25)),
+        "0": () => setZoom(100),
+        "[": () =>
+          tool === "highlighter"
+            ? setHighlighterWidth((w) => Math.max(12, w - 2))
+            : setInkWidth((w) => Math.max(1, w - 0.5)),
+        "]": () =>
+          tool === "highlighter"
+            ? setHighlighterWidth((w) => Math.min(48, w + 2))
+            : setInkWidth((w) => Math.min(6, w + 0.5)),
+        escape: () => setSelectionReset((n) => n + 1),
+        "?": () => setHelp(true),
+      };
+      const selectedTool = TOOL_KEYS[key];
+      const action = selectedTool
+        ? () => {
+            setHand(false);
+            setTool(selectedTool);
+          }
+        : actions[key];
+      if (!action || (e.shiftKey && !["?", "+"].includes(e.key))) return;
+      e.preventDefault();
+      if (!e.repeat) action();
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  });
   if (fatal)
     return (
       <main className="opening">
@@ -657,16 +779,21 @@ function App() {
         </div>
         <DockMenu label="Navigate" icon="▦" disabled={locked}>
           <nav className="nav-controls" aria-label="Planner navigation">
-            <button disabled={locked} onClick={() => navigate(initialView)}>
+            <button
+              title="Home (Home)"
+              disabled={locked}
+              onClick={() => navigate(initialView)}
+            >
               Home
             </button>
-            <button disabled={locked} onClick={today}>
+            <button title="Today (T)" disabled={locked} onClick={today}>
               Today
             </button>
             <div className="segmented">
               {(["month", "week"] as const).map((mode) => (
                 <button
                   key={mode}
+                  title={mode === "month" ? "Month (M)" : "Week (W)"}
                   disabled={locked}
                   className={view.mode === mode ? "selected" : ""}
                   onClick={() => navigate({ mode, date: view.date })}
@@ -676,6 +803,8 @@ function App() {
               ))}
             </div>
             <input
+              ref={dateInput}
+              title="Jump to date (G)"
               aria-label="Jump to date"
               type="date"
               min="1900-01-01"
@@ -916,6 +1045,7 @@ function App() {
           <div className="spread-zoom" role="group" aria-label="Spread zoom">
             <button
               aria-label="Zoom out"
+              title="Zoom out (−)"
               disabled={locked || zoom <= 100}
               onClick={() => setZoom(Math.max(100, zoom - 25))}
             >
@@ -924,12 +1054,17 @@ function App() {
             <output aria-label="Zoom level">{zoom}%</output>
             <button
               aria-label="Zoom in"
+              title="Zoom in (+)"
               disabled={locked || zoom >= 250}
               onClick={() => setZoom(Math.min(250, zoom + 25))}
             >
               +
             </button>
-            <button disabled={locked} onClick={() => setZoom(100)}>
+            <button
+              title="Fit spread (0)"
+              disabled={locked}
+              onClick={() => setZoom(100)}
+            >
               Fit spread
             </button>
             <button
@@ -1025,7 +1160,7 @@ function App() {
           disabled={locked}
           onClick={() => setHelp(true)}
           aria-label="Help and installation"
-          title="Help and installation"
+          title="Help and installation (?)"
         >
           <span aria-hidden="true">?</span>
           <small>Help</small>
@@ -1036,6 +1171,7 @@ function App() {
           <button
             disabled={locked}
             aria-label="Previous spread"
+            title="Previous spread (←)"
             onClick={() => turnPage(-1)}
           >
             ‹
@@ -1057,12 +1193,13 @@ function App() {
           <button
             disabled={locked}
             aria-label="Next spread"
+            title="Next spread (→)"
             onClick={() => turnPage(1)}
           >
             ›
           </button>
         </div>
-        <SpreadViewport locked={locked} hand={hand} zoom={zoom}>
+        <SpreadViewport locked={locked} hand={hand || spacePan} zoom={zoom}>
           <div
             className={"book" + (turn ? " turning" : "")}
             ref={book}
@@ -1143,13 +1280,21 @@ function App() {
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
                   <Ink
+                    selectionReset={selectionReset}
                     fingerWriting={fingerWriting}
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
                     tool={tool}
                     eraser={tool === "eraser"}
-                    enabled={!hand && tool !== "browse" && !operation && !turn}
+                    enabled={
+                      !hand &&
+                      !spacePan &&
+                      !help &&
+                      tool !== "browse" &&
+                      !operation &&
+                      !turn
+                    }
                     onBusy={(value) => {
                       if (value) gesture.current = null;
                       if (value || busyRef.current)
@@ -1411,12 +1556,37 @@ function App() {
         <div className="modal-backdrop">
           <section
             className="help"
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="help-title"
           >
             <h2 id="help-title">Your planner, at home on your iPad</h2>
             <p>Version {APP_VERSION}</p>
+            <h3>Keyboard shortcuts</h3>
+            <p>
+              Shortcuts pause while editing form fields and while writing or
+              turning pages. Use Command instead of Ctrl on a Mac. Browser zoom
+              shortcuts remain available.
+            </p>
+            <table className="shortcut-table">
+              <thead>
+                <tr>
+                  <th>Keys</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SHORTCUTS.map(([keys, action]) => (
+                  <tr key={keys}>
+                    <td>
+                      <kbd>{keys}</kbd>
+                    </td>
+                    <td>{action}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
             <p>
               Write with a pen or mouse. Enable Finger writing in the writing
               tools to use one finger or a touch stylus on a phone. Leave it off

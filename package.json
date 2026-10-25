@@ -15,7 +15,8 @@
     "test:reliability": "node scripts/reliability-check.mjs",
     "test:turn": "node scripts/turn-check.mjs",
     "format": "prettier --write src scripts tests package.json tsconfig.json pnpm-workspace.yaml",
-    "test:dock": "node scripts/dock-check.mjs"
+    "test:dock": "node scripts/dock-check.mjs",
+    "test:keyboard": "node scripts/keyboard-check.mjs"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
