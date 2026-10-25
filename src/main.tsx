@@ -51,7 +51,8 @@ function App() {
     [fatal, setFatal] = useState(""),
     [status, setStatus] = useState("Opening planner…"),
     [error, setError] = useState("");
-  const [color, setColor] = useState("#4b4659"),
+  const [inkColor, setInkColor] = useState("#4b4659"),
+    [highlighterColor, setHighlighterColor] = useState("#ffeb3b"),
     [width, setWidth] = useState(2.5),
     [fingerWriting, setFingerWriting] = useState(false),
     [tool, setTool] = useState<
@@ -69,6 +70,20 @@ function App() {
     [operation, setOperation] = useState(false),
     [busy, setBusy] = useState(false),
     [update, setUpdate] = useState<ServiceWorkerRegistration | null>(null);
+  const color = tool === "highlighter" ? highlighterColor : inkColor;
+  const palette =
+    tool === "highlighter"
+      ? [
+          { color: "#ffeb3b", name: "Yellow" },
+          { color: "#ff69b4", name: "Pink" },
+          { color: "#4fc3f7", name: "Blue" },
+          { color: "#76e65b", name: "Green" },
+          { color: "#ffad33", name: "Orange" },
+          { color: "#bb86fc", name: "Purple" },
+        ]
+      : ["#4b4659", "#986077", "#6c628d", "#557961", "#ad7554", "#467c91"].map(
+          (color) => ({ color, name: color }),
+        );
   const pagesRef = useRef(pages),
     settingsRef = useRef(settings),
     busyRef = useRef(false),
@@ -1008,23 +1023,19 @@ function App() {
               >
                 Finger writing
               </button>
-              {[
-                "#4b4659",
-                "#986077",
-                "#6c628d",
-                "#557961",
-                "#ad7554",
-                "#467c91",
-              ].map((c) => (
+              {palette.map(({ color: c, name }) => (
                 <button
                   key={c}
                   disabled={locked}
                   className={"swatch " + (color === c ? "chosen" : "")}
-                  aria-label={`Ink ${c}`}
+                  aria-label={
+                    tool === "highlighter" ? `Highlighter ${name}` : `Ink ${c}`
+                  }
                   aria-pressed={color === c}
                   style={{ background: c }}
                   onClick={() => {
-                    setColor(c);
+                    if (tool === "highlighter") setHighlighterColor(c);
+                    else setInkColor(c);
                     if (tool !== "pencil" && tool !== "highlighter")
                       setTool("pen");
                   }}
