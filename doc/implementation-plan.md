@@ -1,6 +1,6 @@
 # My Pastel Planner implementation plan
 
-Updated: 2026-10-25. Status: Luc approved Phase 2 and authorized Phase 3 implementation. Phase 3 customization review build implemented; desktop checks documented in [Phase 3 testing](phase-3-testing.md). Real-iPad acceptance remains required. Phase 4 remains future work.
+Updated: 2026-10-25. Status: Luc authorized Phase 4 implementation. Reliability and PDF export review build implemented; desktop checks documented in [Phase 4 testing](phase-4-testing.md). Real-iPad acceptance remains required. No deployment performed.
 
 ## Goal and environment
 
@@ -63,6 +63,8 @@ Implementation: two-page inserts preserve the binder spread layout. Calendar and
 
 ### 4. Reliability and export
 
+Implementation: offline current-spread/entire-binder PDF snapshots, coalesced save queue, strict persisted-record validation, schema 1-to-2 backup migration, local version guards and recovery controls. See [Phase 4 testing](phase-4-testing.md) for desktop evidence and iPad acceptance.
+
 - PDF export containing templates and handwriting; distinct from editable backups.
 - Large-planner performance, save-failure and interrupted-save handling, validated restores, schema migrations and safe updates.
 - Finish operating, installation, backup/restore and development documentation.
@@ -89,5 +91,5 @@ Deliver source, working staged application, upload ZIP, local run/build instruct
 
 - Kim's approval of weekly day distribution and eventual visual prototype.
 - Stroke selection/eraser details and backup reminder cadence.
-- Exact rendering, animation and PDF libraries after compatibility/license evaluation.
+- Rendering: React templates and Canvas ink; animation: page-flip; PDF: html2canvas and jsPDF (MIT), bundled locally. Actual iPad export compatibility still requires acceptance testing.
 - Optional server backup/sync is outside current local-only scope and would require a new privacy/security design.

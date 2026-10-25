@@ -1,6 +1,6 @@
 # Data storage and backups
 
-Updated: 2026-10-25. Status: approved approach implemented; Phase 3 adds organization and tool metadata without rewriting existing ink. iPad acceptance testing pending.
+Updated: 2026-10-25. Status: Phase 4 hardens validation, recovery and save queuing while retaining the approved storage format. iPad acceptance testing pending.
 
 ## Agreed combination
 
@@ -18,6 +18,10 @@ IndexedDB stores structured objects with transactions and indexes; JSON is a ser
 
 Persist completed strokes incrementally. Mark a save complete only after its transaction succeeds. Handle quota/transaction failures visibly. Track schema and layout versions so changes do not silently move existing ink. Keep repository/storage access behind an interface to permit future migration.
 
+The save queue keeps only the latest waiting snapshot of each page/settings record; an already-running transaction finishes before its successor. Failures leave the in-memory planner available for JSON export and a whole-planner atomic Retry save. Closing before a successful save can lose the latest unsaved work; interrupted transactions retain their previous committed state. There is no claim that an uncommitted stroke survives a force quit.
+
+Local settings now carry `dataSchemaVersion: 2` and `layoutVersion: 1`. Missing markers are legacy-compatible; unsupported markers block opening without modifying records. The IndexedDB database stays at version 1: no store change is needed. Every load validates all saved pages and references. Failed opens expose raw recovery download and validated-backup restore only after this tab has obtained the writer lease (or the browser's documented single-tab fallback).
+
 ## Backup format
 
 Filename: my-pastel-planner-<ISO timestamp with filename-safe separators>.json.
@@ -29,6 +33,10 @@ Insertion, duplication and deletion commit affected page records and settings in
 Validate format/version, sizes, values, duplicate IDs and references before modifying live data. Initial restore behavior should be full replacement after confirmation, with a pre-restore backup offered and transactional replacement. Reject unsupported future formats without changing current data. Verify a complete round trip on the actual iPad.
 
 Plain JSON backups are readable and not encrypted. Save them to a user-selected location; choosing iCloud Drive or another cloud folder is the user's action and differs from the application uploading data. Optional compression/encryption can be evaluated later.
+
+Restoring a schema 1 backup explicitly migrates it to schema 2 with empty organization metadata. IDs, coordinates and tool data are preserved; applying the migration twice has the same result. Unknown settings/view fields are excluded from validated imports. Unsupported future schema/layout versions are rejected before any transaction. Raw recovery files use `my-pastel-planner-recovery-records`, retain unreadable records for troubleshooting and are deliberately not accepted as ordinary editable backups.
+
+PDFs are visual snapshots at 2x logical resolution, with JPEG-compressed pages and one two-page spread per landscape sheet. They cannot be imported to recover editable content. Keep JSON backups alongside PDFs. A seven-day reminder is based on the last JSON download request; the app cannot verify that a downloaded file was retained in Files.
 
 ## Where data lives
 

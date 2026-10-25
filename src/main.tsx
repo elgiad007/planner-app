@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { SaveQueue } from "./saveQueue";
 import { ToolButton } from "./ToolButton";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
@@ -11,6 +12,7 @@ import {
   saveSettings,
   replacePlanner,
   saveOrganization,
+  readPlannerRecords,
 } from "./storage";
 import {
   INSERTS,
@@ -27,7 +29,7 @@ import {
   MONTHS,
   validView,
   validDate,
-  validateBackup,
+  migrateBackup,
   type Page,
   type Stroke,
   type Settings,
@@ -36,13 +38,13 @@ import {
 } from "./model";
 import "./style.css";
 
-function download(data: Backup) {
+function download(data: unknown, prefix = "my-pastel-planner") {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(data)], { type: "application/json" }),
   );
   const a = document.createElement("a");
   a.href = url;
-  a.download = `my-pastel-planner-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  a.download = `${prefix}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
@@ -50,6 +52,7 @@ function App() {
   const [pages, setPages] = useState<Record<string, Page>>({}),
     [settings, setSettings] = useState<Settings>({ view: initialView });
   const [ready, setReady] = useState(false),
+    [recoveryAllowed, setRecoveryAllowed] = useState(false),
     [fatal, setFatal] = useState(""),
     [status, setStatus] = useState("Opening planner…"),
     [error, setError] = useState("");
@@ -73,6 +76,20 @@ function App() {
     [operation, setOperation] = useState(false),
     [busy, setBusy] = useState(false),
     [update, setUpdate] = useState<ServiceWorkerRegistration | null>(null);
+  const [pdfPanel, setPdfPanel] = useState(false),
+    [pdfScope, setPdfScope] = useState<"current" | "binder">("current"),
+    [pdfProgress, setPdfProgress] = useState(""),
+    [pdfFile, setPdfFile] = useState<{ url: string; name: string } | null>(
+      null,
+    );
+  const pdfAbort = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      if (pdfFile) URL.revokeObjectURL(pdfFile.url);
+    },
+    [pdfFile],
+  );
+  useEffect(() => () => pdfAbort.current?.abort(), []);
   const color = tool === "highlighter" ? highlighterColor : inkColor;
   const width = tool === "highlighter" ? highlighterWidth : inkWidth;
   const palette =
@@ -95,6 +112,14 @@ function App() {
     pending = useRef(0),
     failed = useRef(false),
     queue = useRef<Promise<void>>(Promise.resolve());
+  const saveQueue = useRef<SaveQueue | null>(null);
+  if (!saveQueue.current)
+    saveQueue.current = new SaveQueue((e) => {
+      failed.current = true;
+      setError(
+        `Could not save: ${String(e)}. Keep the app open. Download a backup or retry.`,
+      );
+    });
   const book = useWritingGuard(tool !== "browse" && !operation && ready);
   const history = useRef<{ past: Page[]; future: Page[] }>({
     past: [],
@@ -103,6 +128,7 @@ function App() {
   const input = useRef<HTMLInputElement>(null);
   const view = settings.view,
     ids = pageIds(view);
+  const organization = useMemo(() => plannerOrder(settings), [settings]);
   const [turn, setTurn] = useState<{ next: View; direction: number } | null>(
     null,
   );
@@ -137,10 +163,12 @@ function App() {
           setStatus("Saved on this iPad");
         })
         .catch((e) => {
-          if (live)
+          if (live) {
+            setRecoveryAllowed(true);
             setFatal(
               `Could not open local storage: ${String(e)}. Your existing data has not been replaced. Close other planner tabs and try again.`,
             );
+          }
         });
     // Hold one writer lease for this tab's lifetime so stale tabs cannot overwrite ink.
     if (navigator.locks) {
@@ -221,24 +249,16 @@ function App() {
       disposed = true;
     };
   }, []);
-  function persist(work: () => Promise<void>) {
+  function persist(key: string, work: () => Promise<void>) {
     pending.current++;
     setStatus("Saving…");
-    queue.current = queue.current
-      .then(work)
-      .catch((e) => {
-        failed.current = true;
-        setError(
-          `Could not save: ${String(e)}. Keep the app open. Download a backup or retry.`,
+    queue.current = saveQueue.current!.enqueue(key, work).finally(() => {
+      pending.current--;
+      if (!pending.current)
+        setStatus(
+          failed.current ? "Save needs attention" : "Saved on this iPad",
         );
-      })
-      .finally(() => {
-        pending.current--;
-        if (!pending.current)
-          setStatus(
-            failed.current ? "Save needs attention" : "Saved on this iPad",
-          );
-      });
+    });
   }
   function lock() {
     return busyRef.current || opRef.current || turning.current || !ready;
@@ -252,7 +272,7 @@ function App() {
     if (s.order?.length) s.order = plannerOrder(s);
     settingsRef.current = s;
     setSettings(s);
-    persist(() => saveSettings(s));
+    persist("settings", () => saveSettings(s));
   }
   function turnPage(direction: number) {
     if (lock()) return;
@@ -280,7 +300,7 @@ function App() {
     const next = { ...pagesRef.current, [id]: p };
     pagesRef.current = next;
     setPages(next);
-    persist(() => savePage(p));
+    persist(id, () => savePage(p));
   }
   function undo(redo = false) {
     if (lock()) return;
@@ -315,7 +335,7 @@ function App() {
       format: "my-pastel-planner",
       schemaVersion: 2,
       layoutVersion: 1,
-      appVersion: "0.3.0",
+      appVersion: "0.4.0",
       exportedAt: new Date().toISOString(),
       pages: Object.values(pagesRef.current),
       settings: settingsRef.current,
@@ -414,9 +434,9 @@ function App() {
         ...settingsRef.current,
         lastBackup: new Date().toISOString(),
       };
+      await saveSettings(next);
       settingsRef.current = next;
       setSettings(next);
-      await saveSettings(next);
       setStatus("Backup downloaded — save it in Files");
     });
   }
@@ -425,7 +445,7 @@ function App() {
     await exclusive(async () => {
       if (file.size > 100 * 1024 * 1024)
         throw Error("Backup is too large (maximum 100 MB).");
-      const data = validateBackup(JSON.parse(await file.text()));
+      const data = migrateBackup(JSON.parse(await file.text()));
       if (
         !confirm(
           "Replace this iPad’s planner with this backup? A backup of the current planner will download first. Save that file in Files before continuing.",
@@ -457,6 +477,82 @@ function App() {
       failed.current = false;
       setError("");
       setStatus("Saved on this iPad");
+    });
+  }
+  async function recoveryCopy() {
+    const records = await readPlannerRecords();
+    download(
+      {
+        format: "my-pastel-planner-recovery-records",
+        exportedAt: new Date().toISOString(),
+        ...records,
+      },
+      "my-pastel-planner-recovery",
+    );
+  }
+  async function recover(file?: File) {
+    if (!file || opRef.current) return;
+    opRef.current = true;
+    setOperation(true);
+    try {
+      if (file.size > 100 * 1024 * 1024)
+        throw Error("Backup is too large (maximum 100 MB).");
+      const data = migrateBackup(JSON.parse(await file.text()));
+      if (
+        !confirm(
+          "Restore this JSON backup? The unreadable local records will download as a recovery file first. Save that file before replacing anything.",
+        )
+      )
+        return;
+      await recoveryCopy();
+      if (
+        !confirm(
+          "Has the recovery file been saved in Files? Select OK to replace local data with the validated backup, or Cancel to leave it unchanged.",
+        )
+      )
+        return;
+      await replacePlanner(data);
+      location.reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      opRef.current = false;
+      setOperation(false);
+    }
+  }
+  function exportPdf() {
+    void exclusive(async () => {
+      const controller = new AbortController();
+      pdfAbort.current = controller;
+      setPdfFile(null);
+      setPdfProgress("Preparing PDF…");
+      try {
+        const data = snapshot();
+        const { createPdf } = await import("./pdf");
+        const blob = await createPdf(
+          data,
+          pdfScope,
+          controller.signal,
+          (done, total) =>
+            setPdfProgress(`Creating PDF: ${done} of ${total} spreads`),
+        );
+        setPdfFile({
+          url: URL.createObjectURL(blob),
+          name: `my-pastel-planner-${pdfScope}-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`,
+        });
+        setPdfProgress("PDF ready. Download and save it in Files.");
+      } catch (e) {
+        if (controller.signal.aborted)
+          setPdfProgress("PDF export cancelled. Your planner is unchanged.");
+        else {
+          setPdfProgress(
+            "PDF export failed. Try the current spread or export a JSON backup.",
+          );
+          throw e;
+        }
+      } finally {
+        pdfAbort.current = null;
+      }
     });
   }
   function today() {
@@ -503,6 +599,34 @@ function App() {
         <h1>My Pastel Planner</h1>
         <p role="alert">{fatal}</p>
         <button onClick={() => location.reload()}>Try again</button>
+        {recoveryAllowed && (
+          <>
+            <button
+              disabled={operation}
+              onClick={() => {
+                void recoveryCopy().catch((e) => setError(String(e)));
+              }}
+            >
+              Download recovery data
+            </button>
+            <p>
+              Recovery data preserves local records for troubleshooting. To
+              resume from a known good JSON backup, select it below. Existing
+              records are preserved until you confirm replacement.
+            </p>
+            <input
+              disabled={operation}
+              aria-label="Recovery backup"
+              type="file"
+              accept=".json,application/json"
+              onChange={(e) => {
+                void recover(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
+        {error && <p role="alert">{error}</p>}
       </main>
     );
   if (!ready)
@@ -515,7 +639,6 @@ function App() {
   const locked = busy || operation || !!turn;
   const year = parseDate(view.date).getUTCFullYear();
   const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
-  const organization = plannerOrder(settings);
   const bookmarked = settings.bookmarks?.includes(spreadId(view));
   return (
     <main>
@@ -1107,6 +1230,13 @@ function App() {
             {status} · {online ? "Online" : "Offline"}
           </span>
           <div>
+            <button
+              disabled={locked}
+              onClick={() => setPdfPanel(!pdfPanel)}
+              aria-expanded={pdfPanel}
+            >
+              Export PDF
+            </button>
             <button disabled={locked} onClick={backup}>
               Download backup
             </button>
@@ -1125,10 +1255,51 @@ function App() {
             />
           </div>
         </div>
-        {!settings.lastBackup && (
+        {pdfPanel && (
+          <section className="pdf-panel" aria-label="PDF export">
+            <p>
+              PDF includes page templates and handwriting, with one two-page
+              spread per sheet. Keep JSON backups for editable recovery.
+            </p>
+            <label>
+              Pages to export{" "}
+              <select
+                aria-label="PDF pages"
+                disabled={locked}
+                value={pdfScope}
+                onChange={(e) => {
+                  setPdfScope(e.target.value as "current" | "binder");
+                  setPdfFile(null);
+                  setPdfProgress("");
+                }}
+              >
+                <option value="current">Current spread</option>
+                <option value="binder">Entire binder</option>
+              </select>
+            </label>{" "}
+            <button disabled={locked} onClick={exportPdf}>
+              Create PDF
+            </button>{" "}
+            {pdfAbort.current && (
+              <button onClick={() => pdfAbort.current?.abort()}>
+                Cancel PDF
+              </button>
+            )}
+            {pdfFile && (
+              <a href={pdfFile.url} download={pdfFile.name}>
+                Download PDF
+              </a>
+            )}
+            <p role="status">{pdfProgress}</p>
+          </section>
+        )}
+        {(!settings.lastBackup ||
+          Date.now() - Date.parse(settings.lastBackup) > 7 * 86400000) && (
           <p className="backup-note">
-            Your handwriting stays on this device. Download a backup regularly
-            and save it in Files.
+            {settings.lastBackup
+              ? "It has been over a week since a backup download. "
+              : "Your handwriting stays on this device. "}
+            Download a JSON backup and save it in Files.
           </p>
         )}
         {error && (
@@ -1187,7 +1358,9 @@ function App() {
               duplicates, ordering and bookmarks. Select / move: draw a box
               around ink, then drag a selected stroke; switch tools to clear
               selection. Undo reverses ink movement. Highlighter is translucent;
-              Pencil varies with pressure. PDF export comes in Phase 4.
+              Pencil varies with pressure. Export PDF creates a visual copy of
+              the current spread or entire binder. Create it, then tap Download
+              PDF and save in Files. PDFs cannot restore editable handwriting.
             </p>
             <button
               onClick={() => {

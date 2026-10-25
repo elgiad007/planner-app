@@ -126,6 +126,12 @@ export function validateBackup(raw: unknown): Backup {
     typeof b.appVersion !== "string"
   )
     throw Error("This is not a supported planner backup. No data was changed.");
+  if (
+    b.settings.lastBackup !== undefined &&
+    (typeof b.settings.lastBackup !== "string" ||
+      !Number.isFinite(Date.parse(b.settings.lastBackup)))
+  )
+    throw Error("Invalid backup date.");
   if (b.pages.length > 20000) throw Error("Backup contains too many pages.");
   const inserts = b.settings.inserts ?? [];
   const order = b.settings.order ?? [];
@@ -143,7 +149,8 @@ export function validateBackup(raw: unknown): Backup {
     inserts.length > 5000 ||
     !Array.isArray(order) ||
     order.length > 20000 ||
-    !Array.isArray(bookmarks)
+    !Array.isArray(bookmarks) ||
+    bookmarks.length > 20000
   )
     throw Error("Invalid page organization.");
   const customIds = new Set<string>();
@@ -173,7 +180,7 @@ export function validateBackup(raw: unknown): Backup {
     orderIds.add(spreadId(v));
   }
   if (
-    inserts.some((i) => !order.some((v) => v.insert === i.id)) ||
+    inserts.some((i) => !orderIds.has(`custom:${i.id}`)) ||
     (b.settings.view.insert && !customIds.has(b.settings.view.insert)) ||
     bookmarks.some((id) => typeof id !== "string" || !orderIds.has(id)) ||
     new Set(bookmarks).size !== bookmarks.length
@@ -211,6 +218,7 @@ export function validateBackup(raw: unknown): Backup {
         !s.id ||
         s.id.length > 100 ||
         strokeIds.has(s.id) ||
+        typeof s.color !== "string" ||
         !/^#[0-9a-f]{6}$/i.test(s.color) ||
         !Number.isFinite(s.width) ||
         s.width < 0.5 ||
@@ -257,15 +265,41 @@ export function validateBackup(raw: unknown): Backup {
       })),
     })),
     settings: {
-      view: { ...b.settings.view },
+      view: cleanView(b.settings.view),
       ...(b.settings.lastBackup ? { lastBackup: b.settings.lastBackup } : {}),
       ...(b.schemaVersion === 2
         ? {
-            inserts: structuredClone(inserts),
-            order: structuredClone(order),
+            inserts: inserts.map((i) => ({
+              id: i.id,
+              template: i.template,
+              title: i.title,
+              ...(i.source ? { source: cleanView(i.source) } : {}),
+            })),
+            order: order.map(cleanView),
             bookmarks: [...bookmarks],
           }
         : {}),
+    },
+  };
+}
+function cleanView(v: View): View {
+  return {
+    mode: v.mode,
+    date: v.date,
+    ...(v.insert ? { insert: v.insert } : {}),
+  };
+}
+// Explicit additive format migration; never alters page IDs, coordinates or tools.
+export function migrateBackup(raw: unknown): Backup {
+  const data = validateBackup(raw);
+  return {
+    ...data,
+    schemaVersion: 2,
+    settings: {
+      ...data.settings,
+      inserts: data.settings.inserts ?? [],
+      order: data.settings.order ?? [],
+      bookmarks: data.settings.bookmarks ?? [],
     },
   };
 }
@@ -304,6 +338,7 @@ export function spreadTitle(v: View, inserts: CustomSpread[] = []) {
 }
 export function plannerOrder(settings: Settings): View[] {
   const order = [...(settings.order ?? [])];
+  const known = new Set(order.map(spreadId));
   const years = new Set([2027, parseDate(settings.view.date).getUTCFullYear()]);
   for (const year of years) {
     const generated: View[] = [];
@@ -321,9 +356,8 @@ export function plannerOrder(settings: Settings): View[] {
     generated.sort(
       (a, b) => a.date.localeCompare(b.date) || a.mode.localeCompare(b.mode),
     );
-    const missing = generated.filter(
-      (v) => !order.some((o) => spreadId(o) === spreadId(v)),
-    );
+    const missing = generated.filter((v) => !known.has(spreadId(v)));
+    for (const v of missing) known.add(spreadId(v));
     const calendar = order.filter((v) => !v.insert);
     if (
       calendar.length &&

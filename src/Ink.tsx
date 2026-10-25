@@ -11,6 +11,7 @@ import {
   type Stroke,
   type Point,
 } from "./model";
+import { drawSegment as segment, drawHighlight } from "./renderInk";
 
 export function Ink({
   strokes,
@@ -61,31 +62,6 @@ export function Ink({
     ctx.lineJoin = "round";
     return ctx;
   }
-  function segment(
-    ctx: CanvasRenderingContext2D,
-    s: Stroke,
-    a: Point,
-    b?: Point,
-  ) {
-    ctx.globalAlpha = s.tool === "pencil" ? 0.35 + a.pressure * 0.5 : 1;
-    ctx.strokeStyle = ctx.fillStyle = s.color;
-    ctx.beginPath();
-    if (b) {
-      ctx.lineWidth = s.width * (0.35 + (0.65 * (a.pressure + b.pressure)) / 2);
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-    } else {
-      ctx.arc(
-        a.x,
-        a.y,
-        (s.width * (0.35 + 0.65 * a.pressure)) / 2,
-        0,
-        Math.PI * 2,
-      );
-      ctx.fill();
-    }
-  }
   function render() {
     const ctx = context();
     const highlightCtx = context(highlights.current);
@@ -104,23 +80,7 @@ export function Ink({
     highlightCtx.globalCompositeOperation = "multiply";
     for (const s of list) {
       if (s.tool === "highlighter") {
-        highlightCtx.strokeStyle = highlightCtx.fillStyle = s.color;
-        highlightCtx.lineWidth = s.width;
-        highlightCtx.beginPath();
-        if (s.points.length === 1) {
-          highlightCtx.arc(
-            s.points[0].x,
-            s.points[0].y,
-            s.width / 2,
-            0,
-            Math.PI * 2,
-          );
-          highlightCtx.fill();
-        } else {
-          highlightCtx.moveTo(s.points[0].x, s.points[0].y);
-          for (const p of s.points.slice(1)) highlightCtx.lineTo(p.x, p.y);
-          highlightCtx.stroke();
-        }
+        drawHighlight(highlightCtx, s);
       } else {
         segment(ctx, s, s.points[0]);
         for (let i = 1; i < s.points.length; i++)

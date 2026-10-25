@@ -1,22 +1,25 @@
 {
   "name": "my-pastel-planner",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build && node scripts/offline.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/notices.mjs && node scripts/offline.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx --test tests/*.test.ts",
     "test:browser": "node scripts/browser-check.mjs",
     "test:ink": "node scripts/ink-check.mjs",
     "test:touch": "node scripts/touch-check.mjs",
     "test:custom": "node scripts/custom-check.mjs",
+    "test:reliability": "node scripts/reliability-check.mjs",
     "test:turn": "node scripts/turn-check.mjs",
     "format": "prettier --write src scripts tests package.json tsconfig.json pnpm-workspace.yaml"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "idb": "^8.0.3",
+    "jspdf": "^4.2.1",
     "page-flip": "2.0.7",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

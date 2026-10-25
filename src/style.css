@@ -1,6 +1,31 @@
 * {
   box-sizing: border-box;
 }
+.pdf-paper {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 600px;
+  height: 800px;
+  background: #fffdf8;
+  pointer-events: none;
+}
+.pdf-panel {
+  background: #fffaf2;
+  border: 1px solid #d6c9e8;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 8px 0;
+}
+.pdf-panel select,
+.pdf-panel button,
+.pdf-panel a {
+  min-height: 44px;
+  padding: 8px;
+}
+.pdf-panel p {
+  line-height: 1.5;
+}
 :root {
   font-family:
     ui-sans-serif,
