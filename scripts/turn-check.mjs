@@ -36,6 +36,49 @@ const previous = () =>
 async function settled() {
   await page.waitForFunction(() => !document.querySelector(".page-turn"));
 }
+async function watchLayout() {
+  await page.evaluate(() => {
+    const measure = () => {
+      const doc = document.documentElement;
+      const book = document.querySelector(".book").getBoundingClientRect();
+      const rings = document.querySelector(".rings").getBoundingClientRect();
+      return [
+        doc.clientWidth,
+        doc.scrollWidth,
+        doc.scrollHeight,
+        book.x,
+        book.y,
+        book.width,
+        rings.x,
+        scrollX,
+        scrollY,
+      ];
+    };
+    window.turnLayout = { baseline: measure(), samples: [], done: false };
+    let seen = false;
+    const deadline = performance.now() + 3000;
+    const sample = () => {
+      const active = !!document.querySelector(".page-turn");
+      seen ||= active;
+      window.turnLayout.samples.push(measure());
+      if ((seen && !active) || performance.now() > deadline) {
+        window.turnLayout.done = true;
+      } else requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+}
+async function assertStableLayout() {
+  await page.waitForFunction(() => window.turnLayout.done);
+  const { baseline, samples } = await page.evaluate(() => window.turnLayout);
+  assert.ok(samples.length > 2, "Sample multiple animation frames");
+  for (const sample of samples)
+    assert.deepEqual(
+      sample,
+      baseline,
+      "Page turns must preserve document size, binder/ring position and scroll offset",
+    );
+}
 async function backup() {
   const download = page.waitForEvent("download");
   await page
@@ -55,6 +98,7 @@ try {
   await page.mouse.up();
   const original = await backup();
   const pixels = await ink.evaluate((canvas) => canvas.toDataURL());
+  await watchLayout();
   await next().click();
   await page.locator(".page-turn").waitFor();
   assert.equal(await next().isDisabled(), true);
@@ -75,9 +119,12 @@ try {
     Buffer.from(data, "base64"),
   );
   await settled();
+  await assertStableLayout();
   await page.getByRole("heading", { name: "February 2027" }).first().waitFor();
+  await watchLayout();
   await previous().click();
   await settled();
+  await assertStableLayout();
   assert.equal(await ink.evaluate((canvas) => canvas.toDataURL()), pixels);
   assert.deepEqual((await backup()).pages, original.pages);
   // Real touch events exercise browser dispatch and the native pointer pathway.
@@ -134,8 +181,10 @@ try {
     await settled();
   }
   await page.setViewportSize({ width: 1024, height: 1366 });
+  await watchLayout();
   await next().click();
   await settled();
+  await assertStableLayout();
   await page.screenshot({
     path: "test-results/page-turn-portrait.png",
     fullPage: true,
@@ -150,7 +199,7 @@ try {
   assert.deepEqual((await backup()).pages, original.pages);
   assert.deepEqual(errors, []);
   console.log(
-    "Page turns passed: canvas copies, ink preservation, swipe/edge input, multitouch rejection, instant tabs, repeated turns, portrait, reduced motion, reload, animation cleanup.",
+    "Page turns passed: stable document/binder layout, canvas copies, ink preservation, swipe/edge input, multitouch rejection, instant tabs, repeated turns, portrait, reduced motion, reload, animation cleanup.",
   );
 } finally {
   await browser.close();

@@ -170,13 +170,16 @@ main {
 }
 .page-turn {
   position: absolute;
-  inset: 12px;
+  inset: 0;
+  /* Curl geometry must not enlarge the document and introduce a scrollbar. */
+  overflow: hidden;
+  border-radius: inherit;
   z-index: 4;
   pointer-events: none;
 }
 .page-turn > div {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 12px;
 }
 .turn-sheet {
   overflow: hidden;

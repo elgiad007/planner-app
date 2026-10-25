@@ -12,6 +12,8 @@ Only four disposable page copies enter the animation engine. Canvas bitmaps are 
 
 ## Desktop checks
 
+The animation overlay clips temporary curled-page overflow within the binder. This prevents transient document growth and the scrollbar-induced leftward shift. Regression checks compare document dimensions, binder/ring positions and scroll offsets on every sampled frame in both turn directions and portrait orientation.
+
 Run `pnpm test`, `pnpm build`, `pnpm test:browser`, `pnpm test:ink`, `pnpm test:touch`, and `pnpm test:turn` with the production preview running on port 4173. Page-turn checks cover copied ink pixels, unchanged backup strokes, arrows, native browser touch swipes/edge taps, multitouch rejection, finger-writing exclusion, instant tabs, repeated turns, portrait, reduced motion, reload and zero pending animation frames after cleanup. Screenshots are written to `test-results/`.
 
 ## Kim's iPad acceptance
