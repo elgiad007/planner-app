@@ -666,3 +666,116 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.organizer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.organizer h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.organizer h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.organizer h4 {
+  margin: 16px 0 8px;
+  font-size: 14px;
+}
+.organizer p {
+  line-height: 1.5;
+  margin: 6px 0 14px;
+}
+.organizer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+}
+.organizer-card {
+  min-width: 0;
+  border: 1px solid #dfd5e6;
+  border-radius: 10px;
+  padding: 18px;
+  background: #fffdf9;
+}
+.organizer-navigation {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.organizer label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  flex: 1 1 150px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+.organizer select,
+.organizer input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-weight: 400;
+  min-height: 44px;
+}
+.organizer button {
+  border-color: #cbbfcf;
+  background: #f5eff8;
+  min-height: 44px;
+}
+.organizer button:hover:not(:disabled) {
+  background: #e9dff0;
+}
+.organizer button.organizer-primary {
+  background: #685276;
+  color: white;
+  border-color: #685276;
+}
+.organizer button.organizer-primary:hover:not(:disabled) {
+  background: #554162;
+}
+.organizer button[aria-pressed="true"] {
+  background: #e3d8ec;
+}
+.organizer select:focus-visible {
+  outline: 2px solid #857297;
+  outline-offset: 2px;
+}
+.organizer .current-spread-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+.organizer-danger {
+  border-top: 1px solid #e7d9dc;
+  margin-top: 18px;
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.organizer-danger button {
+  color: #8b3546;
+  background: #fff3f3;
+  border-color: #dbb5bd;
+}
+.organizer-danger small {
+  line-height: 1.5;
+}
+@media (max-width: 800px) {
+  .organizer-grid {
+    grid-template-columns: 1fr;
+  }
+  .organizer-header {
+    flex-wrap: wrap;
+  }
+  .organizer-card {
+    padding: 14px;
+  }
+}

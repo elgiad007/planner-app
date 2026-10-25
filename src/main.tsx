@@ -61,6 +61,7 @@ function App() {
     [insertType, setInsertType] = useState<Insert>("lined"),
     [insertTitle, setInsertTitle] = useState(""),
     [position, setPosition] = useState<"before" | "after">("after"),
+    [movePosition, setMovePosition] = useState<"before" | "after">("after"),
     [moveTarget, setMoveTarget] = useState(""),
     [expanded, setExpanded] = useState(true),
     [help, setHelp] = useState(false),
@@ -373,7 +374,7 @@ function App() {
         if (!order.some((v) => spreadId(v) === target)) return;
         const [moving] = order.splice(index, 1);
         const at = order.findIndex((v) => spreadId(v) === target);
-        order.splice(at + (position === "after" ? 1 : 0), 0, moving);
+        order.splice(at + (movePosition === "after" ? 1 : 0), 0, moving);
       }
       const next = { ...current, view: nextView, order, inserts, bookmarks };
       await saveOrganization(next, additions, removed);
@@ -557,144 +558,199 @@ function App() {
       </nav>
       {organize && (
         <section className="organizer" aria-label="Pages and bookmarks">
-          <div className="organizer-controls">
-            <strong>Make it yours</strong>
+          <header className="organizer-header">
+            <div>
+              <h2>Pages &amp; bookmarks</h2>
+              <p>
+                A spread is two facing pages. Add pages, organize your planner,
+                or jump to a favorite.
+              </p>
+            </div>
             <button disabled={locked} onClick={() => setOrganize(false)}>
               Close pages
             </button>
-          </div>
-          <div className="organizer-controls">
-            <label>
-              Paper{" "}
-              <select
-                aria-label="Insert paper"
-                disabled={locked}
-                value={insertType}
-                onChange={(e) => setInsertType(e.target.value as Insert)}
-              >
-                {INSERTS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Title{" "}
-              <input
-                aria-label="Insert title"
-                maxLength={100}
-                value={insertTitle}
-                disabled={locked}
-                placeholder="Optional title"
-                onChange={(e) => setInsertTitle(e.target.value)}
-              />
-            </label>
-            <label>
-              Position{" "}
-              <select
-                aria-label="Spread position"
-                disabled={locked}
-                value={position}
-                onChange={(e) =>
-                  setPosition(e.target.value as "before" | "after")
-                }
-              >
-                <option value="before">Before</option>
-                <option value="after">After</option>
-              </select>
-            </label>
-            <button disabled={locked} onClick={() => organizePages("insert")}>
-              Insert spread
-            </button>
-            <button
-              disabled={locked}
-              onClick={() => organizePages("duplicate")}
-            >
-              Duplicate spread
-            </button>
-            <button
-              disabled={locked || !view.insert}
-              onClick={() => organizePages("delete")}
-            >
-              Delete custom spread
-            </button>
-            <button
-              disabled={locked}
-              aria-pressed={!!bookmarked}
-              onClick={() => organizePages("bookmark")}
-            >
-              {bookmarked ? "Remove bookmark" : "Bookmark spread"}
-            </button>
-          </div>
-          <div className="organizer-controls">
-            <label>
-              Move current spread{" "}
-              <select
-                aria-label="Move destination"
-                value={moveTarget}
-                disabled={locked}
-                onChange={(e) => setMoveTarget(e.target.value)}
-              >
-                <option value="">Choose destination</option>
-                {organization
-                  .filter((v) => spreadId(v) !== spreadId(view))
-                  .map((v) => (
+          </header>
+          <div className="organizer-grid">
+            <section className="organizer-card">
+              <h3>Add pages</h3>
+              <p>Add a new two-page spread beside the one you’re viewing.</p>
+              <div className="organizer-controls">
+                <label>
+                  Paper style{" "}
+                  <select
+                    aria-label="Insert paper"
+                    disabled={locked}
+                    value={insertType}
+                    onChange={(e) => setInsertType(e.target.value as Insert)}
+                  >
+                    {INSERTS.map((t) => (
+                      <option key={t} value={t}>
+                        {t === "dot-grid"
+                          ? "Dot grid"
+                          : t[0].toUpperCase() + t.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Title{" "}
+                  <input
+                    aria-label="Insert title"
+                    maxLength={100}
+                    value={insertTitle}
+                    disabled={locked}
+                    placeholder="Optional title"
+                    onChange={(e) => setInsertTitle(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Place new pages{" "}
+                  <select
+                    aria-label="Spread position"
+                    disabled={locked}
+                    value={position}
+                    onChange={(e) =>
+                      setPosition(e.target.value as "before" | "after")
+                    }
+                  >
+                    <option value="before">Before this spread</option>
+                    <option value="after">After this spread</option>
+                  </select>
+                </label>
+                <button
+                  disabled={locked}
+                  className="organizer-primary"
+                  onClick={() => organizePages("insert")}
+                >
+                  Add spread
+                </button>
+              </div>
+            </section>
+            <section className="organizer-card">
+              <h3>Current spread</h3>
+              <p className="current-spread-name">
+                {spreadTitle(view, settings.inserts)}
+              </p>
+              <div className="organizer-controls">
+                <button
+                  disabled={locked}
+                  aria-pressed={!!bookmarked}
+                  onClick={() => organizePages("bookmark")}
+                >
+                  {bookmarked ? "Remove bookmark" : "Bookmark spread"}
+                </button>
+                <button
+                  disabled={locked}
+                  onClick={() => organizePages("duplicate")}
+                >
+                  Duplicate spread
+                </button>
+              </div>
+              <p>
+                Duplicates include handwriting and are placed {position} this
+                spread.
+              </p>
+              <div className="organizer-controls">
+                <label>
+                  Destination{" "}
+                  <select
+                    aria-label="Move destination"
+                    value={moveTarget}
+                    disabled={locked}
+                    onChange={(e) => setMoveTarget(e.target.value)}
+                  >
+                    <option value="">Choose destination</option>
+                    {organization
+                      .filter((v) => spreadId(v) !== spreadId(view))
+                      .map((v) => (
+                        <option key={spreadId(v)} value={spreadId(v)}>
+                          {spreadTitle(v, settings.inserts)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Place moved pages
+                  <select
+                    aria-label="Move position"
+                    disabled={locked}
+                    value={movePosition}
+                    onChange={(e) =>
+                      setMovePosition(e.target.value as "before" | "after")
+                    }
+                  >
+                    <option value="before">Before destination</option>
+                    <option value="after">After destination</option>
+                  </select>
+                </label>
+                <button
+                  disabled={locked || !moveTarget}
+                  onClick={() => organizePages("move", moveTarget)}
+                >
+                  Move spread
+                </button>
+              </div>
+
+              <p>Page-turn arrows follow your saved order.</p>
+              <div className="organizer-danger">
+                <button
+                  disabled={locked || !view.insert}
+                  onClick={() => organizePages("delete")}
+                >
+                  Delete custom spread
+                </button>
+                <small>
+                  {view.insert
+                    ? "Deletes both pages and their handwriting. You’ll be asked to confirm."
+                    : "Only custom spreads can be deleted."}
+                </small>
+              </div>
+            </section>
+            <section className="organizer-card organizer-navigation">
+              <h3>Go to a spread</h3>
+              <h4>Bookmarks</h4>
+              <div className="bookmark-list" aria-label="Bookmarks">
+                {(settings.bookmarks ?? []).length ? (
+                  organization
+                    .filter((v) => settings.bookmarks?.includes(spreadId(v)))
+                    .map((v) => (
+                      <button
+                        disabled={locked}
+                        key={spreadId(v)}
+                        onClick={() => navigate(v)}
+                      >
+                        ★ {spreadTitle(v, settings.inserts)}
+                      </button>
+                    ))
+                ) : (
+                  <span>
+                    No bookmarks yet. Use “Bookmark spread” to save the current
+                    spread here.
+                  </span>
+                )}
+              </div>
+              <label>
+                All spreads{" "}
+                <select
+                  aria-label="Open spread"
+                  disabled={locked}
+                  value={spreadId(view)}
+                  onChange={(e) => {
+                    const v = organization.find(
+                      (v) => spreadId(v) === e.target.value,
+                    );
+                    if (v) navigate(v);
+                  }}
+                >
+                  {organization.map((v) => (
                     <option key={spreadId(v)} value={spreadId(v)}>
                       {spreadTitle(v, settings.inserts)}
                     </option>
                   ))}
-              </select>
-            </label>
-            <button
-              disabled={locked || !moveTarget}
-              onClick={() => organizePages("move", moveTarget)}
-            >
-              Move spread
-            </button>
+                </select>
+              </label>
+            </section>
           </div>
-          <p>
-            Inserts have two pages. Arrows follow your saved binder order after
-            you organize it. Select ink by drawing a box, then drag a selected
-            stroke to move the group.
-          </p>
-          <div className="bookmark-list" aria-label="Bookmarks">
-            {(settings.bookmarks ?? []).length ? (
-              organization
-                .filter((v) => settings.bookmarks?.includes(spreadId(v)))
-                .map((v) => (
-                  <button
-                    disabled={locked}
-                    key={spreadId(v)}
-                    onClick={() => navigate(v)}
-                  >
-                    ★ {spreadTitle(v, settings.inserts)}
-                  </button>
-                ))
-            ) : (
-              <span>No bookmarks yet.</span>
-            )}
-          </div>
-          <label>
-            Open spread{" "}
-            <select
-              aria-label="Open spread"
-              disabled={locked}
-              value={spreadId(view)}
-              onChange={(e) => {
-                const v = organization.find(
-                  (v) => spreadId(v) === e.target.value,
-                );
-                if (v) navigate(v);
-              }}
-            >
-              {organization.map((v) => (
-                <option key={spreadId(v)} value={spreadId(v)}>
-                  {spreadTitle(v, settings.inserts)}
-                </option>
-              ))}
-            </select>
-          </label>
         </section>
       )}
       <div className="workspace">

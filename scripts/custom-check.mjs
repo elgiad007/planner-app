@@ -58,7 +58,7 @@ try {
     await page
       .getByLabel("Insert title", { exact: true })
       .fill(template + " ideas");
-    await button("Insert spread").click();
+    await button("Add spread").click();
     await saved();
     assert.equal(await heading().textContent(), template + " ideas");
     assert.equal(await page.locator(".book > .page .insert-paper").count(), 2);
@@ -134,7 +134,7 @@ try {
   assert.equal(edited.pages.find((p) => p.id === originalId).strokes.length, 2);
   await button("Pages & bookmarks").click();
   await page
-    .getByLabel("Spread position", { exact: true })
+    .getByLabel("Move position", { exact: true })
     .selectOption("before");
   await page
     .getByLabel("Move destination", { exact: true })
