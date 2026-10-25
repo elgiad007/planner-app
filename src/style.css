@@ -157,6 +157,38 @@ main {
   z-index: 2;
   overflow: hidden;
 }
+.book {
+  touch-action: none;
+}
+.turn-destination {
+  position: absolute;
+  inset: 12px;
+  display: flex;
+  gap: 28px;
+  visibility: hidden;
+  pointer-events: none;
+}
+.page-turn {
+  position: absolute;
+  inset: 12px;
+  z-index: 4;
+  pointer-events: none;
+}
+.page-turn > div {
+  width: 100%;
+  height: 100%;
+}
+.turn-sheet {
+  overflow: hidden;
+}
+.turning > .page {
+  pointer-events: none;
+}
+@media (orientation: portrait) {
+  .turn-destination {
+    gap: 18px;
+  }
+}
 .page-0 {
   border-radius: 4px 1px 1px 5px;
   background: linear-gradient(90deg, #fffdf8 90%, #ece6dd);

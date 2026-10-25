@@ -1,6 +1,6 @@
 # My Pastel Planner implementation plan
 
-Updated: 2026-10-25. Status: Phase 1 authorized and implemented for desktop verification; real-iPad acceptance testing pending. Phases 2–4 remain future work.
+Updated: 2026-10-25. Status: Luc approved Phase 1 and authorized Phase 2 implementation. Phase 2 page-turn review build implemented and desktop verified; real-iPad animation/Pencil acceptance pending. Phases 3–4 remain future work. See [Phase 2 testing](phase-2-testing.md).
 
 ## Goal and environment
 

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
+import { PageTurn } from "./PageTurn";
 import { loadPlanner, savePage, saveSettings, replacePlanner } from "./storage";
 import {
   initialView,
@@ -63,6 +64,19 @@ function App() {
   const input = useRef<HTMLInputElement>(null);
   const view = settings.view,
     ids = pageIds(view);
+  const [turn, setTurn] = useState<{ next: View; direction: number } | null>(
+    null,
+  );
+  const turning = useRef(false);
+  const gesture = useRef<{
+    id: number;
+    x: number;
+    y: number;
+    time: number;
+    edge: number;
+  } | null>(null);
+  const contacts = useRef(new Set<number>());
+  const penUntil = useRef(0);
   useEffect(() => {
     let live = true;
     let release = () => {};
@@ -188,14 +202,29 @@ function App() {
       });
   }
   function lock() {
-    return busyRef.current || opRef.current || !ready;
+    return busyRef.current || opRef.current || turning.current || !ready;
   }
   function navigate(next: View) {
     if (lock() || !validView(next)) return;
+    commitView(next);
+  }
+  function commitView(next: View) {
     const s = { ...settingsRef.current, view: next };
     settingsRef.current = s;
     setSettings(s);
     persist(() => saveSettings(s));
+  }
+  function turnPage(direction: number) {
+    if (lock()) return;
+    const next = moveView(settingsRef.current.view, direction);
+    if (!validView(next)) return;
+    gesture.current = null;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      navigate(next);
+      return;
+    }
+    turning.current = true;
+    setTurn({ next, direction });
   }
   function changePage(id: string, strokes: Stroke[], recordHistory = true) {
     const before = pagesRef.current[id]?.strokes ?? [];
@@ -244,7 +273,7 @@ function App() {
       format: "my-pastel-planner",
       schemaVersion: 1,
       layoutVersion: 1,
-      appVersion: "0.1.0",
+      appVersion: "0.2.0",
       exportedAt: new Date().toISOString(),
       pages: Object.values(pagesRef.current),
       settings: settingsRef.current,
@@ -341,7 +370,7 @@ function App() {
         <p>Opening your pages…</p>
       </main>
     );
-  const locked = busy || operation;
+  const locked = busy || operation || !!turn;
   const year = parseDate(view.date).getUTCFullYear();
   return (
     <main>
@@ -397,7 +426,7 @@ function App() {
           <button
             disabled={locked}
             aria-label="Previous spread"
-            onClick={() => navigate(moveView(view, -1))}
+            onClick={() => turnPage(-1)}
           >
             ‹
           </button>
@@ -414,13 +443,80 @@ function App() {
           <button
             disabled={locked}
             aria-label="Next spread"
-            onClick={() => navigate(moveView(view, 1))}
+            onClick={() => turnPage(1)}
           >
             ›
           </button>
         </div>
         <div className="book-wrap">
-          <div className="book" ref={book}>
+          <div
+            className={"book" + (turn ? " turning" : "")}
+            ref={book}
+            onPointerDownCapture={(e) => {
+              if (e.pointerType === "pen") {
+                penUntil.current = performance.now() + 700;
+                gesture.current = null;
+                return;
+              }
+              if (e.pointerType !== "touch") return;
+              contacts.current.add(e.pointerId);
+              if (
+                contacts.current.size !== 1 ||
+                lock() ||
+                performance.now() < penUntil.current ||
+                (fingerWriting && tool !== "browse") ||
+                !(e.target as Element).closest(".page")
+              ) {
+                gesture.current = null;
+                return;
+              }
+              const r = e.currentTarget.getBoundingClientRect();
+              gesture.current = {
+                id: e.pointerId,
+                x: e.clientX,
+                y: e.clientY,
+                time: performance.now(),
+                edge:
+                  e.clientX < r.left + 42
+                    ? -1
+                    : e.clientX > r.right - 42
+                      ? 1
+                      : 0,
+              };
+            }}
+            onPointerUpCapture={(e) => {
+              contacts.current.delete(e.pointerId);
+              const g = gesture.current;
+              gesture.current = null;
+              if (
+                !g ||
+                g.id !== e.pointerId ||
+                lock() ||
+                performance.now() < penUntil.current
+              )
+                return;
+              const dx = e.clientX - g.x,
+                dy = e.clientY - g.y;
+              if (performance.now() - g.time > 900) return;
+              if (Math.abs(dx) > 65 && Math.abs(dx) > Math.abs(dy) * 1.6)
+                turnPage(dx < 0 ? 1 : -1);
+              else if (
+                g.edge &&
+                Math.abs(dx) < 12 &&
+                Math.abs(dy) < 12 &&
+                performance.now() - g.time < 350
+              )
+                turnPage(g.edge);
+            }}
+            onPointerCancelCapture={(e) => {
+              contacts.current.delete(e.pointerId);
+              gesture.current = null;
+            }}
+            onPointerLeave={() => {
+              gesture.current = null;
+              contacts.current.clear();
+            }}
+          >
             <div className="paper-stack" />
             {ids.map((id, side) => (
               <div className={"page page-" + side} key={id}>
@@ -436,8 +532,11 @@ function App() {
                     color={color}
                     width={width}
                     eraser={tool === "eraser"}
-                    enabled={tool !== "browse" && !operation}
+                    enabled={tool !== "browse" && !operation && !turn}
                     onBusy={(value) => {
+                      if (value) gesture.current = null;
+                      if (value || busyRef.current)
+                        penUntil.current = performance.now() + 700;
                       busyRef.current = value;
                       setBusy(value);
                     }}
@@ -448,6 +547,41 @@ function App() {
                 </div>
               </div>
             ))}
+            {turn && (
+              <>
+                <div className="turn-destination" aria-hidden="true" inert>
+                  {pageIds(turn.next).map((id, side) => (
+                    <div className={"page page-" + side} key={id}>
+                      <div className="page-content">
+                        <Template
+                          view={turn.next}
+                          side={side}
+                          onWeek={() => {}}
+                        />
+                        <Ink
+                          strokes={pages[id]?.strokes ?? []}
+                          color={color}
+                          width={width}
+                          eraser={false}
+                          enabled={false}
+                          fingerWriting={false}
+                          onBusy={() => {}}
+                          onChange={() => {}}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <PageTurn
+                  direction={turn.direction}
+                  onDone={() => {
+                    commitView(turn.next);
+                    turning.current = false;
+                    setTurn(null);
+                  }}
+                />
+              </>
+            )}
             <div className="spine" aria-hidden="true" />
             <div className="rings" aria-hidden="true">
               {[12, 20, 28, 72, 80, 88].map((top) => (
@@ -657,9 +791,11 @@ function App() {
               confirmation.
             </p>
             <p>
-              Phase 1 includes basic handwriting and navigation. Page curling,
-              custom inserts, advanced tools and PDF export come in later
-              phases.
+              Swipe horizontally with one finger or tap an outer paper edge to
+              turn pages. Use the arrows for mouse navigation. Finger writing
+              disables page gestures until you switch to Browse dates. Month
+              tabs jump instantly. Custom inserts, advanced tools and PDF export
+              come in later phases.
             </p>
             <button
               onClick={() => {

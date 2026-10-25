@@ -1,5 +1,7 @@
 # Phase 1 verification
 
+Historical Phase 1 checklist. For the current page-turn review build and updated limits, see [Phase 2 testing](phase-2-testing.md).
+
 ## Automated checks
 
 `pnpm test` covers all 2027 months including six-row layouts, leap/year-boundary arithmetic, JSON round trips and invalid imports, stroke-segment hit testing, IndexedDB round trips and validated replacement.
