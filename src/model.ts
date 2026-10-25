@@ -214,7 +214,7 @@ export function validateBackup(raw: unknown): Backup {
         !/^#[0-9a-f]{6}$/i.test(s.color) ||
         !Number.isFinite(s.width) ||
         s.width < 0.5 ||
-        s.width > 20 ||
+        s.width > (s.tool === "highlighter" ? 48 : 20) ||
         (s.tool !== undefined &&
           !["pen", "highlighter", "pencil"].includes(s.tool)) ||
         !Array.isArray(s.points) ||

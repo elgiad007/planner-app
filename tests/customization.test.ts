@@ -85,6 +85,23 @@ test("custom backups reject dangling references, duplicate ordering and invalid 
     assert.throws(() => validateBackup(b));
   }
 });
+
+test("wide highlighter strokes survive backup round trips with tool-specific limits", () => {
+  const b = structuredClone(legacy);
+  const s = b.pages[0].strokes[0];
+  s.tool = "highlighter";
+  for (const width of [7.5, 24, 48]) {
+    s.width = width;
+    assert.deepEqual(validateBackup(JSON.parse(JSON.stringify(b))), b);
+  }
+  s.width = 50;
+  assert.throws(() => validateBackup(b));
+  s.width = 24;
+  for (const tool of ["pen", "pencil", undefined] as const) {
+    s.tool = tool;
+    assert.throws(() => validateBackup(b));
+  }
+});
 test("reordering keeps identities, adds missing years and never duplicates calendar spreads", () => {
   const b = customized();
   const order = b.settings.order!;

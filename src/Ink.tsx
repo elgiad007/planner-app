@@ -349,7 +349,7 @@ export function Ink({
     const stroke: Stroke = {
       id: crypto.randomUUID(),
       color,
-      width: tool === "highlighter" ? Math.min(20, width * 3) : width,
+      width,
       tool: tool === "pencil" || tool === "highlighter" ? tool : "pen",
       points: [p],
     };

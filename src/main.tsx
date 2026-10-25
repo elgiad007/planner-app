@@ -53,7 +53,8 @@ function App() {
     [error, setError] = useState("");
   const [inkColor, setInkColor] = useState("#4b4659"),
     [highlighterColor, setHighlighterColor] = useState("#ffff00"),
-    [width, setWidth] = useState(2.5),
+    [inkWidth, setInkWidth] = useState(2.5),
+    [highlighterWidth, setHighlighterWidth] = useState(24),
     [fingerWriting, setFingerWriting] = useState(false),
     [tool, setTool] = useState<
       "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select"
@@ -71,6 +72,7 @@ function App() {
     [busy, setBusy] = useState(false),
     [update, setUpdate] = useState<ServiceWorkerRegistration | null>(null);
   const color = tool === "highlighter" ? highlighterColor : inkColor;
+  const width = tool === "highlighter" ? highlighterWidth : inkWidth;
   const palette =
     tool === "highlighter"
       ? [
@@ -1044,14 +1046,22 @@ function App() {
               <label className="thickness">
                 Size{" "}
                 <input
-                  aria-label="Pen thickness"
+                  aria-label={
+                    tool === "highlighter"
+                      ? "Highlighter thickness"
+                      : "Pen thickness"
+                  }
                   disabled={locked}
                   type="range"
-                  min="1"
-                  max="6"
-                  step="0.5"
+                  min={tool === "highlighter" ? 12 : 1}
+                  max={tool === "highlighter" ? 48 : 6}
+                  step={tool === "highlighter" ? 2 : 0.5}
                   value={width}
-                  onChange={(e) => setWidth(Number(e.target.value))}
+                  onChange={(e) => {
+                    const nextWidth = Number(e.target.value);
+                    if (tool === "highlighter") setHighlighterWidth(nextWidth);
+                    else setInkWidth(nextWidth);
+                  }}
                 />
               </label>
               <button

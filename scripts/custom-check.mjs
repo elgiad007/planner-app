@@ -65,6 +65,20 @@ try {
   }
   await button("Close pages").click();
   await button("Highlighter").click();
+  const highlighterSize = page.getByRole("slider", {
+    name: "Highlighter thickness",
+  });
+  assert.equal(await highlighterSize.inputValue(), "24");
+  assert.equal(await highlighterSize.getAttribute("max"), "48");
+  await highlighterSize.fill("48");
+  await button("Pen").click();
+  assert.equal(
+    await page.getByRole("slider", { name: "Pen thickness" }).inputValue(),
+    "2.5",
+  );
+  await button("Highlighter").click();
+  assert.equal(await highlighterSize.inputValue(), "48");
+  await highlighterSize.fill("24");
   await draw(100, 200, 180, 240);
   const highlightLayer = page
     .locator(".book > .page .highlighter-layer")
@@ -118,7 +132,9 @@ try {
     originalId = `custom:${originalView.insert}:left`;
   const original = before.pages.find((p) => p.id === originalId);
   assert.equal(original.strokes[0].tool, "highlighter");
+  assert.equal(original.strokes[0].width, 24);
   assert.equal(original.strokes[1].tool, "pencil");
+  assert.equal(original.strokes[1].width, 2.5);
   // Select a long segment by crossing its middle; endpoints lie outside this box.
   await button("Select / move").click();
   await draw(130, 205, 150, 235);
