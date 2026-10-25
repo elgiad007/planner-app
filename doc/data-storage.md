@@ -1,6 +1,6 @@
 # Data storage and backups
 
-Updated: 2026-10-25. Status: approved approach implemented in Phase 1; iPad acceptance testing pending.
+Updated: 2026-10-25. Status: approved approach implemented; Phase 3 adds organization and tool metadata without rewriting existing ink. iPad acceptance testing pending.
 
 ## Agreed combination
 
@@ -22,7 +22,9 @@ Persist completed strokes incrementally. Mark a save complete only after its tra
 
 Filename: my-pastel-planner-<ISO timestamp with filename-safe separators>.json.
 
-Phase 1 top-level fields: format identifier, schemaVersion, layoutVersion, appVersion, exportedAt, pages (containing vector strokes), and settings (including the last view). Page IDs encode month/week date and left/right side. Logical pages are 600 × 800 units. Page ordering and bookmarks will be added with versioned migrations when custom pages are implemented. Calendar templates are regenerated from page IDs and the layout version.
+Phase 1 top-level fields: format identifier, schemaVersion, layoutVersion, appVersion, exportedAt, pages (containing vector strokes), and settings (including the last view). Page IDs encode month/week date and left/right side. Logical pages are 600 × 800 units. Phase 3 exports schema 2, adding settings.order (stable spread references), settings.inserts (ID, paper, title, optional duplicated-calendar source), and settings.bookmarks. Custom page IDs are custom:<UUID>:left/right; strokes optionally record pen/highlighter/pencil. Existing records without a tool render as pen. Version 1 backups remain accepted, with custom organization absent until the first organization action. The IndexedDB stores and database version stay unchanged: these are additive record fields, not a destructive database upgrade. Calendar templates are regenerated from page IDs and the layout version. Duplicated calendar spreads retain their calendar template association but have independent page and stroke IDs.
+
+Insertion, duplication and deletion commit affected page records and settings in one IndexedDB transaction. Reordering and bookmarking change references only. Deletes remove both custom page records and their bookmark, and clear session ink history to prevent undo from recreating deleted records. Generated calendar spreads cannot be deleted. Invalid/missing insert, order, bookmark and template references are rejected before a restore transaction starts.
 
 Validate format/version, sizes, values, duplicate IDs and references before modifying live data. Initial restore behavior should be full replacement after confirmation, with a pre-restore backup offered and transactional replacement. Reject unsupported future formats without changing current data. Verify a complete round trip on the actual iPad.
 

@@ -1,0 +1,231 @@
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+import { readFile, mkdir } from "node:fs/promises";
+await mkdir("test-results", { recursive: true });
+const browser = await chromium.launch({ channel: "msedge", headless: true });
+const context = await browser.newContext({
+  viewport: { width: 1366, height: 1024 },
+  acceptDownloads: true,
+});
+const page = await context.newPage(),
+  errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+const button = (name) => page.getByRole("button", { name, exact: true });
+const heading = () => page.locator(".book > .page .template h1").first();
+async function saved() {
+  await page.waitForFunction(
+    () => !document.querySelector('button[aria-label="Next spread"]')?.disabled,
+  );
+}
+async function snapshot() {
+  const event = page.waitForEvent("download");
+  await button("Download backup").click();
+  const result = JSON.parse(await readFile(await (await event).path(), "utf8"));
+  result.pages.sort((a, b) => a.id.localeCompare(b.id));
+  await saved();
+  return result;
+}
+async function draw(x1, y1, x2, y2) {
+  const r = await page.locator(".book > .page canvas").first().boundingBox();
+  const x = (v) => r.x + (v / 600) * r.width,
+    y = (v) => r.y + (v / 800) * r.height;
+  await page.mouse.move(x(x1), y(y1));
+  await page.mouse.down();
+  await page.mouse.move(x(x2), y(y2), { steps: 12 });
+  await page.mouse.up();
+  await saved();
+}
+async function open(id) {
+  await page.getByLabel("Open spread", { exact: true }).selectOption(id);
+  await saved();
+}
+try {
+  await page.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
+  await heading().waitFor();
+  await draw(100, 200, 180, 240);
+  const legacyInk = (await snapshot()).pages[0];
+  await button("Pages & bookmarks").click();
+  for (const template of [
+    "blank",
+    "lined",
+    "dot-grid",
+    "checklist",
+    "sketchbook",
+  ]) {
+    await page
+      .getByLabel("Insert paper", { exact: true })
+      .selectOption(template);
+    await page
+      .getByLabel("Insert title", { exact: true })
+      .fill(template + " ideas");
+    await button("Insert spread").click();
+    await saved();
+    assert.equal(await heading().textContent(), template + " ideas");
+    assert.equal(await page.locator(".book > .page .insert-paper").count(), 2);
+  }
+  await button("Close pages").click();
+  await button("Highlighter").click();
+  await draw(100, 200, 180, 240);
+  await button("Pencil").click();
+  await draw(260, 320, 300, 350);
+  const before = await snapshot();
+  const originalView = before.settings.view,
+    originalId = `custom:${originalView.insert}:left`;
+  const original = before.pages.find((p) => p.id === originalId);
+  assert.equal(original.strokes[0].tool, "highlighter");
+  assert.equal(original.strokes[1].tool, "pencil");
+  // Select a long segment by crossing its middle; endpoints lie outside this box.
+  await button("Select / move").click();
+  await draw(130, 205, 150, 235);
+  assert.deepEqual(
+    (await snapshot()).pages.find((p) => p.id === originalId),
+    original,
+  );
+  await draw(140, 220, 190, 280);
+  const moved = (await snapshot()).pages.find((p) => p.id === originalId);
+  assert.ok(
+    Math.abs(
+      moved.strokes[0].points[0].x - original.strokes[0].points[0].x - 50,
+    ) < 2,
+  );
+  assert.deepEqual(moved.strokes[1], original.strokes[1]);
+  await button("Undo").click();
+  assert.deepEqual(
+    (await snapshot()).pages.find((p) => p.id === originalId),
+    original,
+  );
+  await button("Redo").click();
+  // A replacement rectangle selects both strokes and moves them together.
+  await draw(120, 230, 320, 370);
+  await draw(190, 280, 210, 300);
+  const groupMoved = (await snapshot()).pages.find((p) => p.id === originalId);
+  for (let i = 0; i < 2; i++) {
+    assert.ok(
+      Math.abs(
+        groupMoved.strokes[i].points[0].x - moved.strokes[i].points[0].x - 20,
+      ) < 2,
+    );
+    assert.ok(
+      Math.abs(
+        groupMoved.strokes[i].points[0].y - moved.strokes[i].points[0].y - 20,
+      ) < 2,
+    );
+  }
+  await button("Undo").click();
+  assert.deepEqual(
+    (await snapshot()).pages.find((p) => p.id === originalId),
+    moved,
+  );
+  await button("Pen").click();
+  await button("Pages & bookmarks").click();
+  await button("Bookmark spread").click();
+  await saved();
+  await button("Duplicate spread").click();
+  await saved();
+  const duplicate = await snapshot(),
+    copyId = `custom:${duplicate.settings.view.insert}:left`;
+  const copy = duplicate.pages.find((p) => p.id === copyId);
+  assert.notEqual(copy.strokes[0].id, moved.strokes[0].id);
+  assert.deepEqual(copy.strokes[0].points, moved.strokes[0].points);
+  await button("Close pages").click();
+  await draw(400, 400, 440, 440);
+  const edited = await snapshot();
+  assert.equal(edited.pages.find((p) => p.id === copyId).strokes.length, 3);
+  assert.equal(edited.pages.find((p) => p.id === originalId).strokes.length, 2);
+  await button("Pages & bookmarks").click();
+  await page
+    .getByLabel("Spread position", { exact: true })
+    .selectOption("before");
+  await page
+    .getByLabel("Move destination", { exact: true })
+    .selectOption("month:2027-01-01");
+  await button("Move spread").click();
+  await saved();
+  const reordered = await snapshot(),
+    index = reordered.settings.order.findIndex(
+      (v) => v.insert === reordered.settings.view.insert,
+    );
+  assert.equal(reordered.settings.order[index + 1].date, "2027-01-01");
+  await button("Next spread").click();
+  await saved();
+  assert.equal(await heading().textContent(), "January 2027");
+  await button("Previous spread").click();
+  await saved();
+  assert.equal(
+    (await snapshot()).settings.view.insert,
+    reordered.settings.view.insert,
+  );
+  await page.reload();
+  await heading().waitFor();
+  const reloaded = await snapshot();
+  assert.deepEqual(reloaded.pages, reordered.pages);
+  assert.deepEqual(reloaded.settings.order, reordered.settings.order);
+  await button("Pages & bookmarks").click();
+  const deleteButton = button("Delete custom spread");
+  page.once("dialog", (d) => d.dismiss());
+  await deleteButton.click();
+  await saved();
+  assert.equal((await snapshot()).pages.length, reloaded.pages.length);
+  page.once("dialog", (d) => d.accept());
+  await deleteButton.click();
+  await saved();
+  const deleted = await snapshot();
+  assert.ok(!deleted.pages.some((p) => p.id === copyId));
+  assert.deepEqual(
+    deleted.pages.find((p) => p.id === originalId),
+    moved,
+  );
+  const bookmark = page
+    .getByLabel("Bookmarks", { exact: true })
+    .getByRole("button");
+  await bookmark.click();
+  await saved();
+  assert.equal((await snapshot()).settings.view.insert, originalView.insert);
+  await open("month:2027-01-01");
+  assert.deepEqual(
+    (await snapshot()).pages.find((p) => p.id === legacyInk.id),
+    legacyInk,
+  );
+  await button("Duplicate spread").click();
+  await saved();
+  assert.equal(await heading().textContent(), "January 2027");
+  const calendarCopy = await snapshot();
+  assert.equal(calendarCopy.settings.inserts.at(-1).source.mode, "month");
+  // Restore a version 2 backup and retain all custom metadata and ink.
+  page.on("dialog", (d) => d.accept());
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "phase3.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(reordered)),
+  });
+  await page
+    .getByRole("status")
+    .filter({ hasText: "Backup restored" })
+    .waitFor();
+  const restored = await snapshot();
+  assert.deepEqual(restored.pages, reordered.pages);
+  assert.deepEqual(restored.settings.order, reordered.settings.order);
+  await button("Close pages").click();
+  await page.screenshot({
+    path: "test-results/phase3-desktop.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1376, height: 1032 });
+  await button("Pages & bookmarks").click();
+  await page.screenshot({
+    path: "test-results/phase3-organizer.png",
+    fullPage: true,
+  });
+  assert.equal(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+    false,
+  );
+  assert.deepEqual(errors, []);
+  console.log(
+    "Phase 3 browser checks passed: five templates, tools, segment selection, movement/undo, duplicate independence, saved ordering, animation, bookmarks, delete confirmation and backup restoration.",
+  );
+} finally {
+  await browser.close();
+}

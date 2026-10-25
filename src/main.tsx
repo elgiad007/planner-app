@@ -4,8 +4,20 @@ import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
 import { PageTurn } from "./PageTurn";
-import { loadPlanner, savePage, saveSettings, replacePlanner } from "./storage";
 import {
+  loadPlanner,
+  savePage,
+  saveSettings,
+  replacePlanner,
+  saveOrganization,
+} from "./storage";
+import {
+  INSERTS,
+  plannerOrder,
+  spreadId,
+  spreadTitle,
+  duplicateSpread,
+  type Insert,
   initialView,
   pageIds,
   moveView,
@@ -42,7 +54,14 @@ function App() {
   const [color, setColor] = useState("#4b4659"),
     [width, setWidth] = useState(2.5),
     [fingerWriting, setFingerWriting] = useState(false),
-    [tool, setTool] = useState<"pen" | "eraser" | "browse">("pen"),
+    [tool, setTool] = useState<
+      "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select"
+    >("pen"),
+    [organize, setOrganize] = useState(false),
+    [insertType, setInsertType] = useState<Insert>("lined"),
+    [insertTitle, setInsertTitle] = useState(""),
+    [position, setPosition] = useState<"before" | "after">("after"),
+    [moveTarget, setMoveTarget] = useState(""),
     [expanded, setExpanded] = useState(true),
     [help, setHelp] = useState(false),
     [online, setOnline] = useState(navigator.onLine),
@@ -210,13 +229,25 @@ function App() {
   }
   function commitView(next: View) {
     const s = { ...settingsRef.current, view: next };
+    if (s.order?.length) s.order = plannerOrder(s);
     settingsRef.current = s;
     setSettings(s);
     persist(() => saveSettings(s));
   }
   function turnPage(direction: number) {
     if (lock()) return;
-    const next = moveView(settingsRef.current.view, direction);
+    const current = settingsRef.current;
+    const order = current.order;
+    const index =
+      order?.findIndex((v) => spreadId(v) === spreadId(current.view)) ?? -1;
+    const next =
+      order && index >= 0
+        ? order[index + direction]
+        : moveView(
+            { mode: current.view.mode, date: current.view.date },
+            direction,
+          );
+    if (!next) return;
     if (!validView(next)) return;
     gesture.current = null;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -271,13 +302,92 @@ function App() {
   function snapshot(): Backup {
     return {
       format: "my-pastel-planner",
-      schemaVersion: 1,
+      schemaVersion: 2,
       layoutVersion: 1,
-      appVersion: "0.2.0",
+      appVersion: "0.3.0",
       exportedAt: new Date().toISOString(),
       pages: Object.values(pagesRef.current),
       settings: settingsRef.current,
     };
+  }
+  function organizePages(
+    action: "insert" | "duplicate" | "delete" | "bookmark" | "move",
+    target?: string,
+  ) {
+    void exclusive(async () => {
+      if (failed.current) throw Error("Retry saving before organizing pages.");
+      const current = settingsRef.current;
+      let order = plannerOrder(current);
+      let inserts = [...(current.inserts ?? [])];
+      let bookmarks = [...(current.bookmarks ?? [])];
+      let nextView = current.view;
+      let additions: Page[] = [],
+        removed: string[] = [];
+      const key = spreadId(current.view);
+      const index = order.findIndex((v) => spreadId(v) === key);
+      if (index < 0) throw Error("Could not locate this spread.");
+      if (action === "insert" || action === "duplicate") {
+        if (inserts.length >= 5000)
+          throw Error("The planner has reached its insert limit.");
+        const source = inserts.find((i) => i.id === current.view.insert);
+        const copy = duplicateSpread(
+          current.view,
+          action === "duplicate" ? (source?.template ?? "blank") : insertType,
+          insertTitle.trim() ||
+            (action === "duplicate"
+              ? `${spreadTitle(current.view, inserts)} copy`.slice(0, 100)
+              : `${insertType[0].toUpperCase() + insertType.slice(1)} notes`),
+          action === "duplicate" ? pagesRef.current : {},
+        );
+        if (action === "duplicate" && (!current.view.insert || source?.source))
+          copy.insert = {
+            ...copy.insert,
+            source: source?.source ?? {
+              mode: current.view.mode,
+              date: current.view.date,
+            },
+          };
+        order.splice(index + (position === "after" ? 1 : 0), 0, copy.view);
+        inserts.push(copy.insert);
+        additions = copy.pages;
+        nextView = copy.view;
+      } else if (action === "delete") {
+        if (
+          !current.view.insert ||
+          !confirm(
+            "Delete this custom spread and its handwriting? This cannot be undone. Download a backup first if you want to keep a copy.",
+          )
+        )
+          return;
+        removed = pageIds(current.view);
+        order.splice(index, 1);
+        inserts = inserts.filter((i) => i.id !== current.view.insert);
+        bookmarks = bookmarks.filter((id) => id !== key);
+        nextView = order[Math.min(index, order.length - 1)] ?? initialView;
+      } else if (action === "bookmark") {
+        bookmarks = bookmarks.includes(key)
+          ? bookmarks.filter((id) => id !== key)
+          : [...bookmarks, key];
+      } else {
+        if (!target || target === key) return;
+        if (!order.some((v) => spreadId(v) === target)) return;
+        const [moving] = order.splice(index, 1);
+        const at = order.findIndex((v) => spreadId(v) === target);
+        order.splice(at + (position === "after" ? 1 : 0), 0, moving);
+      }
+      const next = { ...current, view: nextView, order, inserts, bookmarks };
+      await saveOrganization(next, additions, removed);
+      const updatedPages = { ...pagesRef.current };
+      for (const id of removed) delete updatedPages[id];
+      for (const p of additions) updatedPages[p.id] = p;
+      if (removed.length) history.current = { past: [], future: [] };
+      pagesRef.current = updatedPages;
+      settingsRef.current = next;
+      setPages(updatedPages);
+      setSettings(next);
+      setInsertTitle("");
+      setStatus("Saved on this iPad");
+    });
   }
   function backup() {
     void exclusive(async () => {
@@ -349,7 +459,9 @@ function App() {
         throw Error("Retry saving or download a backup before updating.");
       const worker = update?.waiting;
       if (!worker)
-        throw Error("This update is no longer ready. Reopen the app to check again.");
+        throw Error(
+          "This update is no longer ready. Reopen the app to check again.",
+        );
       download(snapshot());
       if (
         !confirm(
@@ -384,6 +496,9 @@ function App() {
     );
   const locked = busy || operation || !!turn;
   const year = parseDate(view.date).getUTCFullYear();
+  const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
+  const organization = plannerOrder(settings);
+  const bookmarked = settings.bookmarks?.includes(spreadId(view));
   return (
     <main>
       <nav className="topbar" aria-label="Planner navigation">
@@ -406,7 +521,7 @@ function App() {
                 key={mode}
                 disabled={locked}
                 className={view.mode === mode ? "selected" : ""}
-                onClick={() => navigate({ ...view, mode })}
+                onClick={() => navigate({ mode, date: view.date })}
               >
                 {mode === "month" ? "Month" : "Week"}
               </button>
@@ -421,9 +536,16 @@ function App() {
             disabled={locked}
             onChange={(e) => {
               if (validDate(e.target.value))
-                navigate({ ...view, date: e.target.value });
+                navigate({ mode: view.mode, date: e.target.value });
             }}
           />
+          <button
+            disabled={locked}
+            onClick={() => setOrganize(!organize)}
+            aria-expanded={organize}
+          >
+            Pages &amp; bookmarks
+          </button>
           <button
             disabled={locked}
             onClick={() => setHelp(true)}
@@ -433,6 +555,148 @@ function App() {
           </button>
         </div>
       </nav>
+      {organize && (
+        <section className="organizer" aria-label="Pages and bookmarks">
+          <div className="organizer-controls">
+            <strong>Make it yours</strong>
+            <button disabled={locked} onClick={() => setOrganize(false)}>
+              Close pages
+            </button>
+          </div>
+          <div className="organizer-controls">
+            <label>
+              Paper{" "}
+              <select
+                aria-label="Insert paper"
+                disabled={locked}
+                value={insertType}
+                onChange={(e) => setInsertType(e.target.value as Insert)}
+              >
+                {INSERTS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Title{" "}
+              <input
+                aria-label="Insert title"
+                maxLength={100}
+                value={insertTitle}
+                disabled={locked}
+                placeholder="Optional title"
+                onChange={(e) => setInsertTitle(e.target.value)}
+              />
+            </label>
+            <label>
+              Position{" "}
+              <select
+                aria-label="Spread position"
+                disabled={locked}
+                value={position}
+                onChange={(e) =>
+                  setPosition(e.target.value as "before" | "after")
+                }
+              >
+                <option value="before">Before</option>
+                <option value="after">After</option>
+              </select>
+            </label>
+            <button disabled={locked} onClick={() => organizePages("insert")}>
+              Insert spread
+            </button>
+            <button
+              disabled={locked}
+              onClick={() => organizePages("duplicate")}
+            >
+              Duplicate spread
+            </button>
+            <button
+              disabled={locked || !view.insert}
+              onClick={() => organizePages("delete")}
+            >
+              Delete custom spread
+            </button>
+            <button
+              disabled={locked}
+              aria-pressed={!!bookmarked}
+              onClick={() => organizePages("bookmark")}
+            >
+              {bookmarked ? "Remove bookmark" : "Bookmark spread"}
+            </button>
+          </div>
+          <div className="organizer-controls">
+            <label>
+              Move current spread{" "}
+              <select
+                aria-label="Move destination"
+                value={moveTarget}
+                disabled={locked}
+                onChange={(e) => setMoveTarget(e.target.value)}
+              >
+                <option value="">Choose destination</option>
+                {organization
+                  .filter((v) => spreadId(v) !== spreadId(view))
+                  .map((v) => (
+                    <option key={spreadId(v)} value={spreadId(v)}>
+                      {spreadTitle(v, settings.inserts)}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              disabled={locked || !moveTarget}
+              onClick={() => organizePages("move", moveTarget)}
+            >
+              Move spread
+            </button>
+          </div>
+          <p>
+            Inserts have two pages. Arrows follow your saved binder order after
+            you organize it. Select ink by drawing a box, then drag a selected
+            stroke to move the group.
+          </p>
+          <div className="bookmark-list" aria-label="Bookmarks">
+            {(settings.bookmarks ?? []).length ? (
+              organization
+                .filter((v) => settings.bookmarks?.includes(spreadId(v)))
+                .map((v) => (
+                  <button
+                    disabled={locked}
+                    key={spreadId(v)}
+                    onClick={() => navigate(v)}
+                  >
+                    ★ {spreadTitle(v, settings.inserts)}
+                  </button>
+                ))
+            ) : (
+              <span>No bookmarks yet.</span>
+            )}
+          </div>
+          <label>
+            Open spread{" "}
+            <select
+              aria-label="Open spread"
+              disabled={locked}
+              value={spreadId(view)}
+              onChange={(e) => {
+                const v = organization.find(
+                  (v) => spreadId(v) === e.target.value,
+                );
+                if (v) navigate(v);
+              }}
+            >
+              {organization.map((v) => (
+                <option key={spreadId(v)} value={spreadId(v)}>
+                  {spreadTitle(v, settings.inserts)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      )}
       <div className="workspace">
         <div className="spread-navigation">
           <button
@@ -443,13 +707,17 @@ function App() {
             ‹
           </button>
           <span>
-            {view.mode === "month"
-              ? `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
-              : "Your weekly pages"}
+            {currentInsert
+              ? currentInsert.title
+              : view.mode === "month"
+                ? `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
+                : "Your weekly pages"}
             <small>
-              {view.mode === "month"
-                ? "Switch to Browse dates to tap a date and open its week"
-                : "Sunday through Saturday"}
+              {currentInsert
+                ? `${currentInsert.template} · custom spread`
+                : view.mode === "month"
+                  ? "Switch to Browse dates to tap a date and open its week"
+                  : "Sunday through Saturday"}
             </small>
           </span>
           <button
@@ -535,6 +803,7 @@ function App() {
                 <div className="page-content">
                   <Template
                     view={view}
+                    insert={currentInsert}
                     side={side}
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
@@ -543,6 +812,7 @@ function App() {
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
+                    tool={tool}
                     eraser={tool === "eraser"}
                     enabled={tool !== "browse" && !operation && !turn}
                     onBusy={(value) => {
@@ -567,6 +837,9 @@ function App() {
                       <div className="page-content">
                         <Template
                           view={turn.next}
+                          insert={settings.inserts?.find(
+                            (i) => i.id === turn.next.insert,
+                          )}
                           side={side}
                           onWeek={() => {}}
                         />
@@ -652,6 +925,18 @@ function App() {
               >
                 Pen
               </button>
+              {(["highlighter", "pencil", "select"] as const).map((t) => (
+                <button
+                  key={t}
+                  disabled={locked}
+                  className={tool === t ? "selected" : ""}
+                  onClick={() => setTool(t)}
+                >
+                  {t === "select"
+                    ? "Select / move"
+                    : t[0].toUpperCase() + t.slice(1)}
+                </button>
+              ))}
               <button
                 disabled={locked}
                 className={tool === "eraser" ? "selected" : ""}
@@ -693,7 +978,8 @@ function App() {
                   style={{ background: c }}
                   onClick={() => {
                     setColor(c);
-                    setTool("pen");
+                    if (tool !== "pencil" && tool !== "highlighter")
+                      setTool("pen");
                   }}
                 />
               ))}
@@ -806,8 +1092,11 @@ function App() {
               Swipe horizontally with one finger or tap an outer paper edge to
               turn pages. Use the arrows for mouse navigation. Finger writing
               disables page gestures until you switch to Browse dates. Month
-              tabs jump instantly. Custom inserts, advanced tools and PDF export
-              come in later phases.
+              tabs jump instantly. Pages &amp; bookmarks adds custom spreads,
+              duplicates, ordering and bookmarks. Select / move: draw a box
+              around ink, then drag a selected stroke; switch tools to clear
+              selection. Undo reverses ink movement. Highlighter is translucent;
+              Pencil varies with pressure. PDF export comes in Phase 4.
             </p>
             <button
               onClick={() => {

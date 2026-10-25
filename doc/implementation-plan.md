@@ -1,6 +1,6 @@
 # My Pastel Planner implementation plan
 
-Updated: 2026-10-25. Status: Luc approved Phase 1 and authorized Phase 2 implementation. Phase 2 page-turn review build implemented and desktop verified; real-iPad animation/Pencil acceptance pending. Phases 3–4 remain future work. See [Phase 2 testing](phase-2-testing.md).
+Updated: 2026-10-25. Status: Luc approved Phase 2 and authorized Phase 3 implementation. Phase 3 customization review build implemented; desktop checks documented in [Phase 3 testing](phase-3-testing.md). Real-iPad acceptance remains required. Phase 4 remains future work.
 
 ## Goal and environment
 
@@ -53,6 +53,8 @@ Acceptance: verify accurate dates, handwriting alignment, finger/Pencil separati
 - Verify no lost ink, flicker, misalignment or accidental turns.
 
 ### 3. Customization
+
+Implementation: two-page inserts preserve the binder spread layout. Calendar and custom spreads share saved binder ordering after the first organization action. Whole-stroke selection and movement operate within one page. See [Phase 3 testing](phase-3-testing.md).
 
 - Blank, lined, dot-grid, checklist and sketchbook inserts.
 - Insert before/after, reorder, duplicate with independent IDs, delete custom pages with confirmation.

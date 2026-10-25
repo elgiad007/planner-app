@@ -54,3 +54,26 @@ export async function replacePlanner(raw: Backup) {
     throw e;
   }
 }
+
+// Organization and affected ink commit together, so a reload cannot expose half an insert/delete.
+export async function saveOrganization(
+  settings: Settings,
+  pages: Page[] = [],
+  removed: string[] = [],
+) {
+  const db = await database();
+  const tx = db.transaction(["pages", "settings"], "readwrite");
+  const done = tx.done;
+  try {
+    for (const id of removed) await tx.objectStore("pages").delete(id);
+    for (const page of pages) await tx.objectStore("pages").put(page);
+    await tx.objectStore("settings").put(settings, "main");
+    await done;
+  } catch (e) {
+    try {
+      tx.abort();
+    } catch {}
+    await done.catch(() => {});
+    throw e;
+  }
+}

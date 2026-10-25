@@ -1,6 +1,6 @@
 {
   "name": "my-pastel-planner",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "test:browser": "node scripts/browser-check.mjs",
     "test:ink": "node scripts/ink-check.mjs",
     "test:touch": "node scripts/touch-check.mjs",
+    "test:custom": "node scripts/custom-check.mjs",
     "test:turn": "node scripts/turn-check.mjs",
     "format": "prettier --write src scripts tests package.json tsconfig.json pnpm-workspace.yaml"
   },

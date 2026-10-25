@@ -620,3 +620,49 @@ main {
     flex-wrap: wrap;
   }
 }
+
+.organizer {
+  margin: 10px auto;
+  padding: 16px;
+  max-width: 1280px;
+  background: #fffaf2;
+  border: 1px solid #d6c9e8;
+  border-radius: 12px;
+}
+.organizer-controls,
+.bookmark-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.organizer label {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.organizer select,
+.organizer input {
+  max-width: min(100%, 330px);
+  padding: 8px;
+  border: 1px solid #cbbfcf;
+  border-radius: 7px;
+  background: #fffdf9;
+  color: #4b4659;
+  font: inherit;
+}
+.organizer p {
+  font-size: 13px;
+}
+.insert-paper {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+.custom-template h1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

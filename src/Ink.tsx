@@ -3,13 +3,21 @@ import {
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { WIDTH, HEIGHT, hitsStroke, type Stroke, type Point } from "./model";
+import {
+  WIDTH,
+  HEIGHT,
+  hitsStroke,
+  translateStrokes,
+  type Stroke,
+  type Point,
+} from "./model";
 
 export function Ink({
   strokes,
   color,
   width,
   eraser,
+  tool = "pen",
   enabled,
   fingerWriting,
   onChange,
@@ -18,6 +26,7 @@ export function Ink({
   strokes: Stroke[];
   color: string;
   width: number;
+  tool?: "pen" | "pencil" | "highlighter" | "select" | "eraser" | "browse";
   eraser: boolean;
   enabled: boolean;
   fingerWriting: boolean;
@@ -32,7 +41,12 @@ export function Ink({
     stroke: Stroke;
     original: Stroke[];
     remaining: Stroke[];
+    selecting: boolean;
+    moving: boolean;
+    start: Point;
+    end: Point;
   } | null>(null);
+  const selected = useRef(new Set<string>());
   const latest = useRef(strokes);
   latest.current = strokes;
   const callbacks = useRef({ onChange, onBusy });
@@ -53,6 +67,7 @@ export function Ink({
     a: Point,
     b?: Point,
   ) {
+    ctx.globalAlpha = s.tool === "pencil" ? 0.35 + a.pressure * 0.5 : 1;
     ctx.strokeStyle = ctx.fillStyle = s.color;
     ctx.beginPath();
     if (b) {
@@ -76,16 +91,59 @@ export function Ink({
     if (!ctx) return;
     const a = active.current;
     const list = a
-      ? a.eraser
+      ? a.selecting
         ? a.remaining
-        : [...a.original, a.stroke]
+        : a.eraser
+          ? a.remaining
+          : [...a.original, a.stroke]
       : latest.current;
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     for (const s of list) {
-      segment(ctx, s, s.points[0]);
-      for (let i = 1; i < s.points.length; i++)
-        segment(ctx, s, s.points[i - 1], s.points[i]);
+      if (s.tool === "highlighter") {
+        ctx.globalAlpha = 0.28;
+        ctx.strokeStyle = ctx.fillStyle = s.color;
+        ctx.lineWidth = s.width;
+        ctx.beginPath();
+        if (s.points.length === 1) {
+          ctx.arc(s.points[0].x, s.points[0].y, s.width / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.moveTo(s.points[0].x, s.points[0].y);
+          for (const p of s.points.slice(1)) ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+        }
+      } else {
+        segment(ctx, s, s.points[0]);
+        for (let i = 1; i < s.points.length; i++)
+          segment(ctx, s, s.points[i - 1], s.points[i]);
+      }
     }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "#6c628d";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    for (const s of list)
+      if (selected.current.has(s.id)) {
+        let x1 = WIDTH,
+          y1 = HEIGHT,
+          x2 = 0,
+          y2 = 0;
+        for (const p of s.points) {
+          x1 = Math.min(x1, p.x);
+          y1 = Math.min(y1, p.y);
+          x2 = Math.max(x2, p.x);
+          y2 = Math.max(y2, p.y);
+        }
+        ctx.strokeRect(x1 - 4, y1 - 4, x2 - x1 + 8, y2 - y1 + 8);
+      }
+    if (a?.selecting && !a.moving)
+      ctx.strokeRect(
+        a.start.x,
+        a.start.y,
+        a.end.x - a.start.x,
+        a.end.y - a.start.y,
+      );
+    ctx.setLineDash([]);
   }
   function point(e: {
     clientX: number;
@@ -110,11 +168,41 @@ export function Ink({
     const c = canvas.current;
     if (releaseCapture && c?.hasPointerCapture(a.id))
       c.releasePointerCapture(a.id);
-    const next = a.eraser ? a.remaining : [...a.original, a.stroke];
+    if (a.selecting && !a.moving) {
+      const x1 = Math.min(a.start.x, a.end.x),
+        x2 = Math.max(a.start.x, a.end.x),
+        y1 = Math.min(a.start.y, a.end.y),
+        y2 = Math.max(a.start.y, a.end.y);
+      selected.current = new Set(
+        a.original
+          .filter((s) =>
+            s.points.some((p, i) => {
+              const q = s.points[Math.max(0, i - 1)];
+              let lo = 0,
+                hi = 1;
+              for (const [d, dist] of [
+                [-(p.x - q.x), q.x - x1],
+                [p.x - q.x, x2 - q.x],
+                [-(p.y - q.y), q.y - y1],
+                [p.y - q.y, y2 - q.y],
+              ]) {
+                if (!d) {
+                  if (dist < 0) return false;
+                } else if (d < 0) lo = Math.max(lo, dist / d);
+                else hi = Math.min(hi, dist / d);
+              }
+              return lo <= hi;
+            }),
+          )
+          .map((s) => s.id),
+      );
+    }
+    const next =
+      a.selecting || a.eraser ? a.remaining : [...a.original, a.stroke];
     latest.current = next;
     callbacks.current.onBusy(false);
     render();
-    callbacks.current.onChange(next);
+    if (!a.selecting || a.moving) callbacks.current.onChange(next);
   }
   function move(e: PointerEvent) {
     const a = active.current;
@@ -130,14 +218,25 @@ export function Ink({
     let erased = false;
     for (const sample of samples.length ? samples : [e]) {
       const p = point(sample);
-      if (a.eraser) {
+      if (a.selecting) {
+        a.end = p;
+        if (a.moving)
+          a.remaining = translateStrokes(
+            a.original,
+            selected.current,
+            p.x - a.start.x,
+            p.y - a.start.y,
+          );
+        render();
+      } else if (a.eraser) {
         const remaining = a.remaining.filter((s) => !hitsStroke(p, s));
         erased ||= remaining.length !== a.remaining.length;
         a.remaining = remaining;
       } else {
         const previous = a.stroke.points[a.stroke.points.length - 1];
         a.stroke.points.push(p);
-        if (ctx) segment(ctx, a.stroke, previous, p);
+        if (a.stroke.tool === "highlighter") render();
+        else if (ctx) segment(ctx, a.stroke, previous, p);
       }
     }
     if (erased) render();
@@ -147,7 +246,17 @@ export function Ink({
     if (!a || a.id !== e.pointerId || a.type !== e.pointerType) return;
     if (e.type === "pointerup") {
       const p = point(e);
-      if (a.eraser) a.remaining = a.remaining.filter((s) => !hitsStroke(p, s));
+      if (a.selecting) {
+        a.end = p;
+        if (a.moving)
+          a.remaining = translateStrokes(
+            a.original,
+            selected.current,
+            p.x - a.start.x,
+            p.y - a.start.y,
+          );
+      } else if (a.eraser)
+        a.remaining = a.remaining.filter((s) => !hitsStroke(p, s));
       else {
         const previous = a.stroke.points[a.stroke.points.length - 1];
         if (p.x !== previous.x || p.y !== previous.y) {
@@ -206,6 +315,10 @@ export function Ink({
   }, []);
   useLayoutEffect(() => render(), [strokes]);
   useLayoutEffect(() => {
+    selected.current.clear();
+    render();
+  }, [tool]);
+  useLayoutEffect(() => {
     if (!enabled) finish();
   }, [enabled]);
   function down(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -219,12 +332,28 @@ export function Ink({
     if (previous) finish();
     e.preventDefault();
     const p = point(e);
-    const stroke = { id: crypto.randomUUID(), color, width, points: [p] };
+    const stroke: Stroke = {
+      id: crypto.randomUUID(),
+      color,
+      width: tool === "highlighter" ? Math.min(20, width * 3) : width,
+      tool: tool === "pencil" || tool === "highlighter" ? tool : "pen",
+      points: [p],
+    };
+    const moving =
+      tool === "select" &&
+      latest.current.some(
+        (s) => selected.current.has(s.id) && hitsStroke(p, s),
+      );
+    if (tool === "select" && !moving) selected.current.clear();
     active.current = {
       id: e.pointerId,
       type: e.pointerType,
       eraser,
       stroke,
+      selecting: tool === "select",
+      moving,
+      start: p,
+      end: p,
       original: latest.current,
       remaining: eraser
         ? latest.current.filter((s) => !hitsStroke(p, s))
@@ -236,7 +365,7 @@ export function Ink({
       // Capture can fail after a browser interruption; window listeners still work.
     }
     callbacks.current.onBusy(true);
-    if (eraser) render();
+    if (eraser || tool === "select" || tool === "highlighter") render();
     else {
       const ctx = context();
       if (ctx) segment(ctx, stroke, p);

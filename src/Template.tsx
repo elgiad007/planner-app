@@ -6,16 +6,92 @@ import {
   sunday,
   addDays,
   type View,
+  type CustomSpread,
 } from "./model";
 export function Template({
   view,
   side,
   onWeek,
+  insert,
 }: {
+  insert?: CustomSpread;
   view: View;
   side: number;
   onWeek: (s: string) => void;
 }) {
+  if (insert?.source)
+    return <Template view={insert.source} side={side} onWeek={onWeek} />;
+  if (insert)
+    return (
+      <div className="template custom-template">
+        <header>
+          <span className="eyebrow">A LITTLE ROOM FOR YOU</span>
+          <h1>{insert.title}</h1>
+        </header>
+        <svg
+          className="insert-paper"
+          viewBox="0 0 600 650"
+          preserveAspectRatio="none"
+          aria-label={`${insert.template} paper`}
+        >
+          {insert.template === "lined" || insert.template === "checklist"
+            ? Array.from({ length: 21 }, (_, i) => (
+                <g key={i}>
+                  <line
+                    x1={insert.template === "checklist" ? 58 : 0}
+                    x2="600"
+                    y1={24 + i * 30}
+                    y2={24 + i * 30}
+                    stroke="#d8d1c7"
+                    strokeWidth="1"
+                  />
+                  {insert.template === "checklist" && (
+                    <rect
+                      x="12"
+                      y={9 + i * 30}
+                      width="14"
+                      height="14"
+                      rx="2"
+                      fill="none"
+                      stroke="#a69da8"
+                    />
+                  )}
+                </g>
+              ))
+            : null}
+          {insert.template === "dot-grid" && (
+            <>
+              <defs>
+                <pattern
+                  id={`dots-${side}`}
+                  width="24"
+                  height="24"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <circle cx="12" cy="12" r="1.2" fill="#bcb3ba" />
+                </pattern>
+              </defs>
+              <rect width="600" height="650" fill={`url(#dots-${side})`} />
+            </>
+          )}
+          {insert.template === "sketchbook" && (
+            <rect
+              x="2"
+              y="2"
+              width="596"
+              height="646"
+              rx="8"
+              fill="none"
+              stroke="#d8d1c7"
+              strokeWidth="1"
+            />
+          )}
+        </svg>
+        <footer>
+          {side === 0 ? "Ideas have room to grow." : "Make something lovely."}
+        </footer>
+      </div>
+    );
   const d = parseDate(view.date),
     month = d.getUTCMonth();
   if (view.mode === "month") {

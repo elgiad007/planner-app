@@ -44,6 +44,11 @@ try {
   await draw(0);
   const three = await savedPages();
   await next.click();
+  await page.waitForFunction(
+    () =>
+      !document.querySelector(".page-turn") &&
+      !document.querySelector('button[aria-label="Next spread"]').disabled,
+  );
   const heading = await page.locator(".template h1").first().textContent();
   await undo.click();
   assert.deepEqual(await savedPages(), both);

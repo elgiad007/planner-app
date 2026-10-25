@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $distPath = Join-Path $projectRoot 'dist'
 $releasePath = Join-Path $projectRoot 'release'
-$archivePath = Join-Path $releasePath 'my-pastel-planner-phase2.zip'
+$archivePath = Join-Path $releasePath 'my-pastel-planner-phase3.zip'
 $temporaryArchive = Join-Path $releasePath ('build-' + [guid]::NewGuid().ToString('N') + '.zip')
 
 $timer = [System.Diagnostics.Stopwatch]::StartNew()
