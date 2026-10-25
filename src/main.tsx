@@ -347,12 +347,24 @@ function App() {
     void exclusive(async () => {
       if (failed.current)
         throw Error("Retry saving or download a backup before updating.");
+      const worker = update?.waiting;
+      if (!worker)
+        throw Error("This update is no longer ready. Reopen the app to check again.");
+      download(snapshot());
+      if (
+        !confirm(
+          "A backup of your current planner has been downloaded. Save it in Files before continuing. Has the backup been saved? Select OK to update, or Cancel to keep the planner open.",
+        )
+      ) {
+        setStatus("Update paused — save the backup, then try again");
+        return;
+      }
       navigator.serviceWorker.addEventListener(
         "controllerchange",
         () => location.reload(),
         { once: true },
       );
-      update?.waiting?.postMessage("ACTIVATE");
+      worker.postMessage("ACTIVATE");
     });
   }
   if (fatal)
@@ -752,9 +764,9 @@ function App() {
         )}
         {update && (
           <div className="update">
-            An app update is ready.{" "}
+            An app update is ready. Download and save a backup before updating.{" "}
             <button disabled={locked} onClick={installUpdate}>
-              Save and update
+              Back up and update
             </button>
           </div>
         )}
