@@ -681,6 +681,24 @@ function App() {
                   navigate({ mode: view.mode, date: e.target.value });
               }}
             />
+            <label className="holiday-toggle">
+              <input
+                type="checkbox"
+                checked={settings.showHolidays !== false}
+                disabled={locked}
+                onChange={(e) => {
+                  if (lock()) return;
+                  const next = {
+                    ...settingsRef.current,
+                    showHolidays: e.target.checked,
+                  };
+                  settingsRef.current = next;
+                  setSettings(next);
+                  persist("settings", () => saveSettings(next));
+                }}
+              />
+              Show holidays
+            </label>
           </nav>
         </DockMenu>
         <DockMenu label="Pages" icon="▤" disabled={locked}>
@@ -1077,6 +1095,7 @@ function App() {
               <div className={"page page-" + side} key={id}>
                 <div className="page-content">
                   <Template
+                    showHolidays={settings.showHolidays !== false}
                     view={view}
                     insert={currentInsert}
                     side={side}
@@ -1111,6 +1130,7 @@ function App() {
                     <div className={"page page-" + side} key={id}>
                       <div className="page-content">
                         <Template
+                          showHolidays={settings.showHolidays !== false}
                           view={turn.next}
                           insert={settings.inserts?.find(
                             (i) => i.id === turn.next.insert,

@@ -1230,3 +1230,31 @@ main {
 .thickness output {
   min-width: 22px;
 }
+
+.holiday-label {
+  color: #786883;
+  font-size: 1.65cqw;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.holiday-label:empty {
+  display: none;
+}
+.date-cell .holiday-label {
+  padding: 0 0.8cqw 0.5cqw;
+}
+.muted .holiday-label {
+  opacity: 0.65;
+}
+.weekly-day .holiday-label {
+  margin-bottom: 0.6cqw;
+}
+.holiday-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.holiday-toggle input {
+  width: auto;
+}
