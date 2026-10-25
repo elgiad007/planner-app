@@ -11,6 +11,7 @@ export function Ink({
   width,
   eraser,
   enabled,
+  fingerWriting,
   onChange,
   onBusy,
 }: {
@@ -19,6 +20,7 @@ export function Ink({
   width: number;
   eraser: boolean;
   enabled: boolean;
+  fingerWriting: boolean;
   onChange: (s: Stroke[]) => void;
   onBusy: (b: boolean) => void;
 }) {
@@ -171,6 +173,7 @@ export function Ink({
     };
     const interrupted = () => finish();
     const freshContact = (e: PointerEvent) => {
+      if (e.pointerType === "touch" && !e.isPrimary) return;
       // Also recover when the next pen contact lands on the other page.
       if (e.button === 0 && active.current?.type === e.pointerType) finish();
     };
@@ -206,8 +209,10 @@ export function Ink({
     if (!enabled) finish();
   }, [enabled]);
   function down(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!enabled || !["pen", "mouse"].includes(e.pointerType) || e.button !== 0)
-      return;
+    const accepted =
+      ["pen", "mouse"].includes(e.pointerType) ||
+      (fingerWriting && e.pointerType === "touch" && e.isPrimary);
+    if (!enabled || !accepted || e.button !== 0) return;
     const previous = active.current;
     // Fresh contact recovers missed endings. Other device types cannot steal ink.
     if (previous && previous.type !== e.pointerType) return;
@@ -241,7 +246,11 @@ export function Ink({
     <canvas
       ref={canvas}
       className={"ink " + (!enabled ? "browse" : "")}
-      aria-label="Handwriting surface: use Apple Pencil, or a mouse for desktop testing"
+      aria-label={
+        fingerWriting
+          ? "Handwriting surface: use a pen, mouse, or one finger"
+          : "Handwriting surface: use a pen or mouse; enable Finger writing for touch"
+      }
       onPointerDown={down}
       onLostPointerCapture={(e) => {
         // Ignore delayed loss notifications if this pointer has already been recaptured.

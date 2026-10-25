@@ -35,7 +35,7 @@ export function useWritingGuard(writing: boolean) {
       if (onPaper(e.target) && e.cancelable) e.preventDefault();
     };
     const contact = (e: PointerEvent) => {
-      if (onPaper(e.target) && e.pointerType === "pen") clearPaperSelection();
+      if (onPaper(e.target)) clearPaperSelection();
     };
     root.addEventListener("selectstart", suppress, true);
     root.addEventListener("contextmenu", suppress, true);

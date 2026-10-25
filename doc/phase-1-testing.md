@@ -8,6 +8,12 @@ Run production preview on port 4173, then `pnpm test:browser`. The browser scrip
 
 Verified on 2026-10-25: TypeScript/production build passed; all five automated tests passed; Edge browser checks passed including second-tab exclusion, navigation lock during writing, a simulated quota failure followed by successful retry, and whole-stroke erasing. Monthly and weekly screenshots were visually reviewed at 1366 × 1024 and the smaller landscape layout at 1024 × 768. This does not establish real-iPad acceptance.
 
+## Phone finger writing
+
+Enable **Finger writing** in the writing tools to draw or erase with a finger or a touch stylus. It defaults to off each time the app opens, preserving pen palm protection. Mouse and pen input remain available in either setting. Only the primary touch draws; additional fingers cannot replace it. Use **Browse dates** to tap calendar dates.
+
+Run `pnpm test:touch` against production preview (or set `PLANNER_TEST_URL`). It exercises native Chromium touch at 390px and 412px widths, default touch exclusion, opt-in drawing, additional-finger exclusion, undo/redo, erasing, reload persistence and date navigation. This emulation does not establish real iPhone Safari or Android acceptance. On each phone, repeat writing with frequent lifts, cancellation/app switching, erasing, saved reloads and offline use. On iPad, keep Finger writing off and recheck Pencil writing with a palm resting on the page.
+
 ## Real iPad acceptance checklist
 
 The 2026-10-25 handwriting reliability changes and focused regression checks are documented in [iPad handwriting reliability fix](ipad-handwriting-fix.md). Run `pnpm test:ink` against the production preview alongside `pnpm test:browser`; real-iPad retesting is still required.

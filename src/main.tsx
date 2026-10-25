@@ -40,6 +40,7 @@ function App() {
     [error, setError] = useState("");
   const [color, setColor] = useState("#4b4659"),
     [width, setWidth] = useState(2.5),
+    [fingerWriting, setFingerWriting] = useState(false),
     [tool, setTool] = useState<"pen" | "eraser" | "browse">("pen"),
     [expanded, setExpanded] = useState(true),
     [help, setHelp] = useState(false),
@@ -434,6 +435,7 @@ function App() {
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
                   <Ink
+                    fingerWriting={fingerWriting}
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
@@ -524,6 +526,15 @@ function App() {
                 Browse dates
               </button>
               <span className="divider" />
+              <button
+                disabled={locked}
+                aria-pressed={fingerWriting}
+                className={fingerWriting ? "selected" : ""}
+                onClick={() => setFingerWriting(!fingerWriting)}
+                title="Enable touch input for fingers or touch styluses. Turn off when using a pen for palm protection."
+              >
+                Finger writing
+              </button>
               {[
                 "#4b4659",
                 "#986077",
@@ -629,10 +640,13 @@ function App() {
           >
             <h2 id="help-title">Your planner, at home on your iPad</h2>
             <p>
-              Write with Apple Pencil. Fingers never draw. Use the tabs and
-              arrow buttons to navigate; choose Browse dates to tap a calendar
-              date. Eraser removes whole strokes. Undo and redo apply to the
-              last page you edited in this spread.
+              Write with a pen or mouse. Enable Finger writing in the writing
+              tools to use one finger or a touch stylus on a phone. Leave it off
+              when using Apple Pencil to prevent palm marks. This option resets
+              to off when you reopen the app. Use the tabs and arrow buttons to
+              navigate; choose Browse dates to tap a calendar date. Eraser
+              removes whole strokes. Undo and redo apply to the last page you
+              edited in this spread.
             </p>
             <p>
               In Safari, open Share → Add to Home Screen. Open the installed
