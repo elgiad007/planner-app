@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { APP_VERSION } from "./version";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SaveQueue } from "./saveQueue";
 import { SpreadViewport } from "./SpreadViewport";
@@ -339,7 +340,7 @@ function App() {
       format: "my-pastel-planner",
       schemaVersion: 2,
       layoutVersion: 1,
-      appVersion: "0.4.0",
+      appVersion: APP_VERSION,
       exportedAt: new Date().toISOString(),
       pages: Object.values(pagesRef.current),
       settings: settingsRef.current,
@@ -1415,6 +1416,7 @@ function App() {
             aria-labelledby="help-title"
           >
             <h2 id="help-title">Your planner, at home on your iPad</h2>
+            <p>Version {APP_VERSION}</p>
             <p>
               Write with a pen or mouse. Enable Finger writing in the writing
               tools to use one finger or a touch stylus on a phone. Leave it off
