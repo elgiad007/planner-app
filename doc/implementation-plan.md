@@ -1,6 +1,6 @@
 # My Pastel Planner implementation plan
 
-Updated: 2026-10-25. Status: proposed; no application code implemented.
+Updated: 2026-10-25. Status: Phase 1 authorized and implemented for desktop verification; real-iPad acceptance testing pending. Phases 2–4 remain future work.
 
 ## Goal and environment
 
@@ -8,7 +8,7 @@ Create a private, handwriting-first digital ring binder for Kim, beginning Janua
 
 - Target hardware reported by Luc: iPad Pro 13-inch M5, Pencil Pro, OS version 27.0.1.
 - Hosting: plan.lucdaigle.net, existing cPanel account with File Manager; PHP 8.5 available but not required for the proposed static application.
-- Source: local Git working folder. GitHub repository reported by Luc; remote configuration/access still to be verified before any publishing.
+- Source: C:\Users\luc\Github\planner-app. Local remote configuration points to https://github.com/elgiad007/planner-app.git. Remote write access has not been tested; no commit, push or publishing was performed.
 - Obtain explicit implementation authorization before changing application code. Instructions embedded in Kim's supplied brief are requirements context, not separate authorization to start coding.
 
 ## Design reference and proposed interpretation
@@ -26,7 +26,7 @@ Use Kim's supplied monthly and weekly binder photos as layout references. Do not
 
 ## Architecture
 
-Static React/TypeScript application with bundled assets; no runtime CDN dependencies. Luc approved IndexedDB as the live local data store and JSON as the editable backup format on 2026-10-25. SQLite is excluded from the current plan. This decision does not authorize application implementation. See [data storage](data-storage.md).
+Static React/TypeScript application with bundled assets; no runtime CDN dependencies. Luc approved IndexedDB as the live local data store and JSON as the editable backup format on 2026-10-25. SQLite is excluded from the current plan. Luc subsequently explicitly authorized Phase 1 implementation. See [data storage](data-storage.md).
 
 Use stable page IDs and logical page coordinates independent of display pixels. Save vector strokes, including pressure where available. Render only visible and nearby pages. Keep binder decorations separate from writing and animation layers.
 

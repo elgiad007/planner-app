@@ -1,6 +1,6 @@
 # Data storage and backups
 
-Updated: 2026-10-25. Status: storage approach approved by Luc; not implemented.
+Updated: 2026-10-25. Status: approved approach implemented in Phase 1; iPad acceptance testing pending.
 
 ## Agreed combination
 
@@ -20,9 +20,9 @@ Persist completed strokes incrementally. Mark a save complete only after its tra
 
 ## Backup format
 
-Proposed filename: my-pastel-planner-YYYY-MM-DD-HHMM.json.
+Filename: my-pastel-planner-<ISO timestamp with filename-safe separators>.json.
 
-Top-level fields: format identifier, schemaVersion, appVersion, exportedAt, planner metadata, pages, page ordering, strokes, bookmarks and settings. Store enough layout metadata to reproduce handwriting placement. This is a proposed contract, to be finalized during implementation.
+Phase 1 top-level fields: format identifier, schemaVersion, layoutVersion, appVersion, exportedAt, pages (containing vector strokes), and settings (including the last view). Page IDs encode month/week date and left/right side. Logical pages are 600 × 800 units. Page ordering and bookmarks will be added with versioned migrations when custom pages are implemented. Calendar templates are regenerated from page IDs and the layout version.
 
 Validate format/version, sizes, values, duplicate IDs and references before modifying live data. Initial restore behavior should be full replacement after confirmation, with a pre-restore backup offered and transactional replacement. Reject unsupported future formats without changing current data. Verify a complete round trip on the actual iPad.
 
