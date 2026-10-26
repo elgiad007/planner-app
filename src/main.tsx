@@ -6,6 +6,7 @@ import { SpreadViewport } from "./SpreadViewport";
 import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
 import { SHORTCUTS, TOOL_KEYS } from "./shortcuts";
+import { TextLayer } from "./TextLayer";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
 import { Template } from "./Template";
@@ -66,7 +67,7 @@ function App() {
     [highlighterWidth, setHighlighterWidth] = useState(24),
     [fingerWriting, setFingerWriting] = useState(false),
     [tool, setTool] = useState<
-      "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select"
+      "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select" | "text"
     >("pen"),
     [insertType, setInsertType] = useState<Insert>("lined"),
     [insertTitle, setInsertTitle] = useState(""),
@@ -92,6 +93,7 @@ function App() {
     [pdfFile],
   );
   useEffect(() => () => pdfAbort.current?.abort(), []);
+  const [colorRevision, setColorRevision] = useState(0);
   const color = tool === "highlighter" ? highlighterColor : inkColor;
   const width = tool === "highlighter" ? highlighterWidth : inkWidth;
   const palette =
@@ -297,15 +299,20 @@ function App() {
     turning.current = true;
     setTurn({ next, direction });
   }
-  function changePage(id: string, strokes: Stroke[], recordHistory = true) {
-    const before = pagesRef.current[id]?.strokes ?? [];
+  function changePage(
+    id: string,
+    strokes: Stroke[],
+    recordHistory = true,
+    textBlocks = pagesRef.current[id]?.textBlocks,
+  ) {
+    const before = pagesRef.current[id] ?? { id, strokes: [] };
     if (recordHistory) {
       const h = history.current;
-      h.past.push({ id, strokes: before });
+      h.past.push(before);
       if (h.past.length > 40) h.past.shift();
       h.future = [];
     }
-    const p = { id, strokes };
+    const p = { id, strokes, ...(textBlocks ? { textBlocks } : {}) };
     const next = { ...pagesRef.current, [id]: p };
     pagesRef.current = next;
     setPages(next);
@@ -321,8 +328,9 @@ function App() {
       to.push({
         id: next.id,
         strokes: pagesRef.current[next.id]?.strokes ?? [],
+        textBlocks: pagesRef.current[next.id]?.textBlocks,
       });
-      changePage(next.id, next.strokes, false);
+      changePage(next.id, next.strokes, false, next.textBlocks ?? []);
     }
   }
   async function exclusive(work: () => Promise<void>) {
@@ -660,7 +668,7 @@ function App() {
       // Preserve text editing, native form controls, and browser/OS shortcuts.
       if (
         target?.closest(
-          "input, textarea, select, [contenteditable]:not([contenteditable='false'])",
+          "dialog, input, textarea, select, [contenteditable]:not([contenteditable='false'])",
         )
       )
         return;
@@ -682,7 +690,6 @@ function App() {
       const actions: Record<string, () => void> = {
         arrowleft: () => turnPage(-1),
         arrowright: () => turnPage(1),
-        t: today,
         home: () => navigate(initialView),
         m: () => navigate({ mode: "month", date: view.date }),
         w: () => navigate({ mode: "week", date: view.date }),
@@ -786,7 +793,7 @@ function App() {
             >
               Home
             </button>
-            <button title="Today (T)" disabled={locked} onClick={today}>
+            <button title="Today" disabled={locked} onClick={today}>
               Today
             </button>
             <div className="segmented">
@@ -1112,8 +1119,9 @@ function App() {
           </div>
           <section className="pdf-panel" aria-label="PDF export">
             <p>
-              PDF includes page templates and handwriting, with one two-page
-              spread per sheet. Keep JSON backups for editable recovery.
+              PDF includes page templates, handwriting, and text, with one
+              two-page spread per sheet. Keep JSON backups for editable
+              recovery.
             </p>
             <label>
               Pages to export{" "}
@@ -1216,6 +1224,7 @@ function App() {
                 lock() ||
                 performance.now() < penUntil.current ||
                 (fingerWriting && tool !== "browse") ||
+                !!(e.target as Element).closest(".text-layer, .text-actions") ||
                 !(e.target as Element).closest(".page")
               ) {
                 gesture.current = null;
@@ -1279,19 +1288,43 @@ function App() {
                     side={side}
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
+                  <TextLayer
+                    blocks={pages[id]?.textBlocks ?? []}
+                    active={
+                      !hand &&
+                      !spacePan &&
+                      !help &&
+                      !operation &&
+                      !turn &&
+                      (tool === "text" || tool === "select")
+                    }
+                    colorRevision={colorRevision}
+                    placing={tool === "text"}
+                    color={color}
+                    reset={selectionReset}
+                    onChange={(textBlocks) =>
+                      changePage(
+                        id,
+                        pagesRef.current[id]?.strokes ?? [],
+                        true,
+                        textBlocks,
+                      )
+                    }
+                  />
                   <Ink
                     selectionReset={selectionReset}
                     fingerWriting={fingerWriting}
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
-                    tool={tool}
+                    tool={tool === "text" ? "browse" : tool}
                     eraser={tool === "eraser"}
                     enabled={
                       !hand &&
                       !spacePan &&
                       !help &&
                       tool !== "browse" &&
+                      tool !== "text" &&
                       !operation &&
                       !turn
                     }
@@ -1323,6 +1356,13 @@ function App() {
                           )}
                           side={side}
                           onWeek={() => {}}
+                        />
+                        <TextLayer
+                          blocks={pages[id]?.textBlocks ?? []}
+                          active={false}
+                          placing={false}
+                          color={color}
+                          onChange={() => {}}
                         />
                         <Ink
                           strokes={pages[id]?.strokes ?? []}
@@ -1406,7 +1446,7 @@ function App() {
                 setTool("pen");
               }}
             />
-            {(["highlighter", "pencil", "select"] as const).map((t) => (
+            {(["highlighter", "pencil", "text", "select"] as const).map((t) => (
               <ToolButton
                 key={t}
                 icon={t}
@@ -1459,10 +1499,16 @@ function App() {
                   aria-pressed={color === c}
                   style={{ background: c }}
                   onClick={() => {
+                    setColorRevision((n) => n + 1);
                     if (tool === "highlighter") setHighlighterColor(c);
                     else setInkColor(c);
                     setHand(false);
-                    if (tool !== "pencil" && tool !== "highlighter")
+                    if (
+                      tool !== "pencil" &&
+                      tool !== "highlighter" &&
+                      tool !== "text" &&
+                      tool !== "select"
+                    )
                       setTool("pen");
                   }}
                 />
@@ -1622,7 +1668,9 @@ function App() {
               tabs jump instantly. Pages &amp; bookmarks adds custom spreads,
               duplicates, ordering and bookmarks. Select / move: draw a box
               around ink, then drag a selected stroke; switch tools to clear
-              selection. Undo reverses ink movement. Highlighter is translucent;
+              selection. Use Text to place a text block, then select it to edit,
+              move, resize, or delete it. The palette changes selected text
+              color. Undo reverses ink movement. Highlighter is translucent;
               Pencil varies with pressure. Export PDF creates a visual copy of
               the current spread or entire binder. Create it, then tap Download
               PDF and save in Files. PDFs cannot restore editable handwriting.

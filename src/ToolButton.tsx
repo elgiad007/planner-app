@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { TOOL_HINTS } from "./shortcuts";
 
 const paths = {
+  text: "M4 5h16M12 5v15M8 20h8",
   pen: "m5 19 1-5L17 3l4 4L10 18l-5 1Zm9-13 4 4M6 14l4 4",
   pencil: "m4 20 2-6L17 3l4 4L10 18l-6 2Zm3-7 4 4M14 6l4 4",
   highlighter: "m5 15 9-11 6 6-11 9-4-4Zm7-8 5 5M5 15l-2 5h6l1-2M3 22h17",

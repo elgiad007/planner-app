@@ -21,10 +21,11 @@ try {
     await page.keyboard.press(key);
   };
   for (const [key, label] of [
+    ["t", "Text"],
     ["n", "Pencil"],
     ["h", "Highlighter"],
     ["e", "Eraser"],
-    ["v", "Select / move"],
+    ["s", "Select / move"],
     ["b", "Browse dates"],
     ["p", "Pen"],
   ]) {

@@ -1,3 +1,4 @@
+import { drawTextBlocks } from "./renderText";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import html2canvas from "html2canvas";
@@ -115,6 +116,7 @@ export async function createPdf(
               );
           }
           drawStrokes(ctx, pages.get(pageIds(view)[side])?.strokes ?? []);
+          drawTextBlocks(ctx, pages.get(pageIds(view)[side])?.textBlocks ?? []);
           pdf.addImage(
             canvas.toDataURL("image/jpeg", 0.94),
             "JPEG",

@@ -50,6 +50,27 @@ export function PageTurn({
       const sheet = document.createElement("div");
       sheet.className = "turn-sheet";
       const copy = source.cloneNode(true) as HTMLElement;
+      // SVG fragment references resolve across the whole document. Keep copied
+      // clip paths and patterns local to this sheet, rather than resolving to
+      // the original page (which may be in the hidden destination preview).
+      const svgIds = new Map<string, string>();
+      const prefix = `turn-${crypto.randomUUID()}-`;
+      copy.querySelectorAll<SVGElement>("svg [id], svg[id]").forEach((node) => {
+        const id = prefix + node.id;
+        svgIds.set(node.id, id);
+        node.id = id;
+      });
+      copy.querySelectorAll<SVGElement>("svg, svg *").forEach((node) => {
+        for (const attr of Array.from(node.attributes)) {
+          const value = attr.value.replace(
+            /url\(\s*(['"]?)#([^\s)'"]+)\1\s*\)/g,
+            (original, _quote: string, id: string) =>
+              svgIds.has(id) ? `url(#${svgIds.get(id)})` : original,
+          );
+          const href = attr.localName === "href" && svgIds.get(value.slice(1));
+          attr.value = value.startsWith("#") && href ? `#${href}` : value;
+        }
+      });
       copy.style.width = `${bounds.width}px`;
       copy.style.height = `${bounds.height}px`;
       copy.style.marginLeft = i % 2 ? `${gap / 2}px` : "0";

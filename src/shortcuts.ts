@@ -1,11 +1,11 @@
 export const SHORTCUTS = [
   ["← / →", "Previous / next spread"],
-  ["T", "Go to today"],
+  ["T", "Text tool"],
   ["Home", "Open the planner’s home view"],
   ["M / W", "Month / week view"],
   ["G", "Jump to date"],
   ["P / N / H", "Pen / pencil / highlighter"],
-  ["E / V / B", "Eraser / select and move / browse dates"],
+  ["E / S / B", "Eraser / select and move / browse dates"],
   ["Hold Space", "Temporarily pan the spread"],
   ["[ / ]", "Decrease / increase writing-tool width"],
   ["Ctrl+Z", "Undo"],
@@ -21,22 +21,24 @@ export const SHORTCUTS = [
 
 export const TOOL_KEYS: Record<
   string,
-  "pen" | "pencil" | "highlighter" | "eraser" | "select" | "browse"
+  "pen" | "pencil" | "highlighter" | "eraser" | "select" | "browse" | "text"
 > = {
+  t: "text",
   p: "pen",
   n: "pencil",
   h: "highlighter",
   e: "eraser",
-  v: "select",
+  s: "select",
   b: "browse",
 };
 
 export const TOOL_HINTS: Record<string, string> = {
+  Text: "T",
   Pen: "P",
   Pencil: "N",
   Highlighter: "H",
   Eraser: "E",
-  "Select / move": "V",
+  "Select / move": "S",
   "Browse dates": "B",
   Undo: "Ctrl+Z",
   Redo: "Ctrl+Shift+Z / Ctrl+Y",

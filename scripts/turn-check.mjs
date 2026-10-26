@@ -80,12 +80,75 @@ async function assertStableLayout() {
       "Page turns must preserve document size, binder/ring position and scroll offset",
     );
 }
+async function assertTextCopies() {
+  const result = await page.locator(".page-turn").evaluate((root) => {
+    const texts = [...root.querySelectorAll(".text-layer text")];
+    return {
+      contents: texts.map((node) => node.textContent),
+      localClips: texts.every((node) => {
+        const match = /^url\(#(.+)\)$/.exec(
+          node.getAttribute("clip-path") ?? "",
+        );
+        const clip = match && document.getElementById(match[1]);
+        return clip?.closest("svg") === node.closest("svg");
+      }),
+    };
+  });
+  assert.deepEqual(result.contents.sort(), [
+    "FEBRUARY NOTE",
+    "FEBRUARY NOTE",
+    "JANUARY NOTE",
+    "JANUARY NOTE",
+  ]);
+  assert.equal(
+    result.localClips,
+    true,
+    "Animated text clips resolve inside their own SVG, not the hidden destination",
+  );
+}
 async function backup() {
   const data = await downloadBackup(page);
   return data;
 }
 try {
   await page.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
+  await next().waitFor();
+  // Incoming text lives under visibility:hidden until it is cloned for turning.
+  // Its copied SVG clips must not resolve back to that hidden preview.
+  await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("my-pastel-planner", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const tx = db.transaction("pages", "readwrite");
+    for (const month of ["01", "02"])
+      for (const side of ["left", "right"]) {
+        const id = "month:2027-" + month + "-01:" + side;
+        tx.objectStore("pages").put({
+          id,
+          strokes: [],
+          textBlocks: [
+            {
+              id: "text-" + month + "-" + side,
+              text: month === "01" ? "JANUARY NOTE" : "FEBRUARY NOTE",
+              color: month === "01" ? "#986077" : "#557961",
+              x: 100,
+              y: 260,
+              width: 400,
+              height: 170,
+              fontSize: 42,
+            },
+          ],
+        });
+      }
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.reload();
   await next().waitFor();
   const ink = page.locator(".book > .page canvas").first();
   const r = await ink.boundingBox();
@@ -100,6 +163,7 @@ try {
   await next().click();
   await page.locator(".page-turn").waitFor();
   assert.equal(await next().isDisabled(), true);
+  await assertTextCopies();
   assert.equal(
     await page
       .locator(".page-turn canvas")
@@ -121,6 +185,15 @@ try {
   await page.getByRole("heading", { name: "February 2027" }).first().waitFor();
   await watchLayout();
   await previous().click();
+  await page.locator(".page-turn").waitFor();
+  await assertTextCopies();
+  const reverseSession = await context.newCDPSession(page);
+  await page.waitForTimeout(180);
+  const reverse = await reverseSession.send("Page.captureScreenshot");
+  await writeFile(
+    "test-results/page-turn-text-backward.png",
+    Buffer.from(reverse.data, "base64"),
+  );
   await settled();
   await assertStableLayout();
   assert.equal(await ink.evaluate((canvas) => canvas.toDataURL()), pixels);
@@ -183,6 +256,15 @@ try {
     await settled();
   }
   await page.setViewportSize({ width: 1024, height: 1366 });
+  // Let ResizeObserver and React finish fitting the book before the baseline.
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+      ),
+  );
   await watchLayout();
   await next().click();
   await settled();
@@ -201,7 +283,7 @@ try {
   assert.deepEqual((await backup()).pages, original.pages);
   assert.deepEqual(errors, []);
   console.log(
-    "Page turns passed: stable document/binder layout, canvas copies, ink preservation, swipe/edge input, multitouch rejection, instant tabs, repeated turns, portrait, reduced motion, reload, animation cleanup.",
+    "Page turns passed: stable document/binder layout, isolated text clips in both directions, canvas copies, ink/text preservation, swipe/edge input, multitouch rejection, instant tabs, repeated turns, portrait, reduced motion, reload, animation cleanup.",
   );
 } finally {
   await browser.close();

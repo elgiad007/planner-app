@@ -5,12 +5,12 @@ Connect a keyboard to use these shortcuts. They are also listed in the app’s H
 | Keys | Action |
 | --- | --- |
 | ← / → | Previous / next spread in binder order |
-| T | Go to today (confirm when opening a year outside 2027) |
+| T | Select the Text tool |
 | Home | Open the planner’s home view |
 | M / W | Switch to month / week view for the current date |
 | G | Open navigation and focus Jump to date |
 | P / N / H | Pen / pencil / highlighter |
-| E / V / B | Eraser / select and move handwriting / browse dates |
+| E / S / B | Eraser / select and move handwriting / browse dates |
 | Hold Space | Temporarily pan; release to return to your current tool |
 | [ / ] | Decrease / increase writing-tool width within its normal limits |
 | Ctrl+Z | Undo |

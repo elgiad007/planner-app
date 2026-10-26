@@ -6,7 +6,17 @@ export type Stroke = {
   width: number;
   points: Point[];
 };
-export type Page = { id: string; strokes: Stroke[] };
+export type TextBlock = {
+  id: string;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+};
+export type Page = { id: string; strokes: Stroke[]; textBlocks?: TextBlock[] };
 export type Insert =
   "blank" | "lined" | "dot-grid" | "checklist" | "sketchbook";
 export type CustomSpread = {
@@ -215,6 +225,35 @@ export function validateBackup(raw: unknown): Backup {
       !Array.isArray(p.strokes)
     )
       throw Error("Backup contains invalid or duplicate pages.");
+    if (p.textBlocks !== undefined) {
+      if (!Array.isArray(p.textBlocks) || p.textBlocks.length > 1000)
+        throw Error("Invalid text blocks.");
+      const seen = new Set<string>();
+      for (const t of p.textBlocks) {
+        if (
+          !t ||
+          typeof t.id !== "string" ||
+          !t.id ||
+          t.id.length > 100 ||
+          seen.has(t.id) ||
+          typeof t.text !== "string" ||
+          t.text.length > 10000 ||
+          typeof t.color !== "string" ||
+          !/^#[0-9a-f]{6}$/i.test(t.color) ||
+          ![t.x, t.y, t.width, t.height, t.fontSize].every(Number.isFinite) ||
+          t.x < 0 ||
+          t.y < 0 ||
+          t.width < 40 ||
+          t.height < 30 ||
+          t.x + t.width > WIDTH ||
+          t.y + t.height > HEIGHT ||
+          t.fontSize < 8 ||
+          t.fontSize > 96
+        )
+          throw Error("Invalid text block.");
+        seen.add(t.id);
+      }
+    }
     ids.add(p.id);
     const strokeIds = new Set<string>();
     for (const s of p.strokes) {
@@ -262,6 +301,20 @@ export function validateBackup(raw: unknown): Backup {
     exportedAt: b.exportedAt,
     pages: b.pages.map((p) => ({
       id: p.id,
+      ...(p.textBlocks
+        ? {
+            textBlocks: p.textBlocks.map((t) => ({
+              id: t.id,
+              text: t.text,
+              color: t.color,
+              x: t.x,
+              y: t.y,
+              width: t.width,
+              height: t.height,
+              fontSize: t.fontSize,
+            })),
+          }
+        : {}),
       strokes: p.strokes.map((s) => ({
         id: s.id,
         color: s.color,
@@ -429,6 +482,10 @@ export function duplicateSpread(
   const next = { ...view, insert: id };
   const copies = pageIds(next).map((id, side) => ({
     id,
+    textBlocks: (pages[pageIds(view)[side]]?.textBlocks ?? []).map((t) => ({
+      ...t,
+      id: crypto.randomUUID(),
+    })),
     strokes: (pages[pageIds(view)[side]]?.strokes ?? []).map((s) => ({
       ...structuredClone(s),
       id: crypto.randomUUID(),
