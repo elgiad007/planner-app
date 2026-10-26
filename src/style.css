@@ -1556,3 +1556,72 @@ main {
   white-space: nowrap;
   text-transform: uppercase;
 }
+
+.bookmark-list {
+  flex-direction: column;
+  align-items: stretch;
+}
+.bookmark-row {
+  display: flex;
+  gap: 8px;
+}
+.bookmark-row > button:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.bookmark-row > button[aria-current="page"] {
+  border-color: #9276b5;
+  background: #eee5f6;
+}
+.bookmark-row > button small {
+  display: block;
+  font-weight: normal;
+  margin-top: 4px;
+}
+.bookmark-row > button {
+  flex-shrink: 0;
+}
+.bookmark-rename {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.bookmark-rename label {
+  display: grid;
+  gap: 6px;
+}
+.bookmark-rename input {
+  width: 100%;
+  min-width: 0;
+}
+.bookmark-rename p {
+  margin: 0;
+  color: #9a2440;
+}
+.bookmark-notice {
+  position: fixed;
+  inset: auto 0 60px;
+  margin: 0 auto;
+  width: max-content;
+  max-width: calc(100vw - 144px);
+  padding: 8px 12px;
+  border: 1px solid #cbbfcf;
+  border-radius: 12px;
+  background: #fffaf6;
+  color: #514b5d;
+  box-shadow: 0 4px 20px #342a3d33;
+  font: inherit;
+}
+.bookmark-notice:popover-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bookmark-notice button {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+}

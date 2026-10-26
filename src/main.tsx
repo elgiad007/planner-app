@@ -27,6 +27,10 @@ import {
   restoreOriginalOrder,
   spreadId,
   spreadTitle,
+  resolvedBookmarkNames,
+  cleanBookmarkName,
+  bookmarkNameKey,
+  bookmarkNameError,
   contentIndex,
   duplicateSpread,
   type Insert,
@@ -74,6 +78,16 @@ function App() {
     [fatal, setFatal] = useState(""),
     [status, setStatus] = useState("Opening planner…"),
     [error, setError] = useState("");
+  const [bookmarkNotice, setBookmarkNotice] = useState<{
+    message: string;
+  } | null>(null);
+  const bookmarkNoticeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!bookmarkNotice) return;
+    bookmarkNoticeRef.current?.showPopover();
+    const timeout = setTimeout(() => setBookmarkNotice(null), 3000);
+    return () => clearTimeout(timeout);
+  }, [bookmarkNotice]);
   const {
     inkColor,
     highlighterColor,
@@ -171,6 +185,13 @@ function App() {
   const view = settings.view,
     ids = pageIds(view);
   const organization = useMemo(() => plannerOrder(settings), [settings]);
+  const bookmarkNames = useMemo(
+    () => resolvedBookmarkNames(settings),
+    [settings],
+  );
+  const [editingBookmark, setEditingBookmark] = useState<string | null>(null);
+  const [bookmarkDraft, setBookmarkDraft] = useState("");
+  const [bookmarkRenameError, setBookmarkRenameError] = useState("");
   const [turn, setTurn] = useState<{ next: View; direction: number } | null>(
     null,
   );
@@ -417,8 +438,16 @@ function App() {
   }
   function organizePages(
     action:
-      "insert" | "duplicate" | "delete" | "bookmark" | "move" | "restore-order",
+      | "insert"
+      | "duplicate"
+      | "delete"
+      | "bookmark"
+      | "remove-bookmark"
+      | "rename-bookmark"
+      | "move"
+      | "restore-order",
     target?: string,
+    name?: string,
   ) {
     void exclusive(async () => {
       if (failed.current) throw Error("Retry saving before organizing pages.");
@@ -426,6 +455,7 @@ function App() {
       let order = plannerOrder(current);
       let inserts = [...(current.inserts ?? [])];
       let bookmarks = [...(current.bookmarks ?? [])];
+      let names = resolvedBookmarkNames(current);
       let nextView = current.view;
       let additions: Page[] = [],
         removed: string[] = [];
@@ -474,6 +504,25 @@ function App() {
         bookmarks = bookmarks.includes(key)
           ? bookmarks.filter((id) => id !== key)
           : [...bookmarks, key];
+      } else if (action === "remove-bookmark") {
+        bookmarks = bookmarks.filter((id) => id !== target);
+      } else if (action === "rename-bookmark") {
+        if (!target || !bookmarks.includes(target) || name === undefined)
+          return;
+        const error =
+          bookmarkNameError(name) ||
+          (Object.entries(names).some(
+            ([id, existing]) =>
+              id !== target &&
+              bookmarkNameKey(existing) === bookmarkNameKey(name),
+          )
+            ? "A bookmark with this name already exists."
+            : null);
+        if (error) {
+          setBookmarkRenameError(error);
+          return;
+        }
+        names[target] = cleanBookmarkName(name);
       } else if (action === "restore-order") {
         order = restoreOriginalOrder(order);
       } else {
@@ -483,7 +532,24 @@ function App() {
         const at = order.findIndex((v) => spreadId(v) === target);
         order.splice(at + (movePosition === "after" ? 1 : 0), 0, moving);
       }
-      const next = { ...current, view: nextView, order, inserts, bookmarks };
+      names = Object.fromEntries(
+        Object.entries(names).filter(([id]) => bookmarks.includes(id)),
+      );
+      names = resolvedBookmarkNames({
+        ...current,
+        order,
+        inserts,
+        bookmarks,
+        bookmarkNames: names,
+      });
+      const next = {
+        ...current,
+        view: nextView,
+        order,
+        inserts,
+        bookmarks,
+        bookmarkNames: names,
+      };
       await saveOrganization(next, additions, removed);
       const updatedPages = { ...pagesRef.current };
       for (const id of removed) delete updatedPages[id];
@@ -494,6 +560,18 @@ function App() {
       setPages(updatedPages);
       setSettings(next);
       setInsertTitle("");
+      if (action === "rename-bookmark") {
+        setEditingBookmark(null);
+        setBookmarkRenameError("");
+      }
+      if (action === "bookmark" || action === "remove-bookmark") {
+        setBookmarkNotice({
+          message:
+            action === "bookmark" && bookmarks.includes(key)
+              ? "Bookmark added"
+              : "Bookmark removed",
+        });
+      }
       setStatus(
         action === "restore-order"
           ? "Original spread order restored"
@@ -842,6 +920,7 @@ function App() {
         home: () => navigate(initialView),
         m: () => navigate({ mode: "month", date: view.date }),
         w: () => navigate({ mode: "week", date: view.date }),
+        k: () => organizePages("bookmark"),
         g: () => {
           const input = dateInput.current;
           input?.closest<HTMLElement>("[popover]")?.showPopover();
@@ -1019,14 +1098,139 @@ function App() {
             </label>
           </nav>
         </DockMenu>
+        <DockMenu label="Bookmarks" icon="★" disabled={locked}>
+          <p className="current-spread-name">
+            {spreadTitle(view, settings.inserts)}
+          </p>
+          <button
+            disabled={locked}
+            aria-pressed={!!bookmarked}
+            aria-keyshortcuts="k"
+            title={bookmarked ? "Remove bookmark (K)" : "Add bookmark (K)"}
+            onClick={() => organizePages("bookmark")}
+          >
+            {bookmarked ? "Remove bookmark" : "Add bookmark"}
+          </button>
+          <h3>Saved bookmarks</h3>
+          <div className="bookmark-list" aria-label="Saved bookmarks">
+            {(settings.bookmarks ?? []).length ? (
+              organization
+                .filter((v) => settings.bookmarks?.includes(spreadId(v)))
+                .map((v) => (
+                  <div className="bookmark-row" key={spreadId(v)}>
+                    {editingBookmark === spreadId(v) ? (
+                      <form
+                        className="bookmark-rename"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          organizePages(
+                            "rename-bookmark",
+                            spreadId(v),
+                            bookmarkDraft,
+                          );
+                        }}
+                      >
+                        <label>
+                          Bookmark name
+                          <input
+                            autoFocus
+                            value={bookmarkDraft}
+                            disabled={locked}
+                            aria-describedby="bookmark-name-help"
+                            aria-invalid={!!bookmarkRenameError}
+                            onChange={(e) => {
+                              setBookmarkDraft(e.target.value);
+                              setBookmarkRenameError("");
+                            }}
+                          />
+                        </label>
+                        <small id="bookmark-name-help">
+                          1–60 characters. Letters, numbers, spaces, and - _ '
+                          &amp; ( ) . , :
+                        </small>
+                        {bookmarkRenameError && (
+                          <p role="alert">{bookmarkRenameError}</p>
+                        )}
+                        <div>
+                          <button disabled={locked} type="submit">
+                            Save
+                          </button>{" "}
+                          <button
+                            disabled={locked}
+                            type="button"
+                            onClick={() => setEditingBookmark(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <button
+                          disabled={locked}
+                          aria-current={
+                            spreadId(v) === spreadId(view) ? "page" : undefined
+                          }
+                          onClick={() => navigate(v)}
+                        >
+                          ★ {bookmarkNames[spreadId(v)]}
+                          {bookmarkNames[spreadId(v)] !==
+                            spreadTitle(v, settings.inserts) && (
+                            <small>{spreadTitle(v, settings.inserts)}</small>
+                          )}
+                        </button>
+                        <button
+                          disabled={locked}
+                          title="Rename"
+                          aria-label={`Rename bookmark ${bookmarkNames[spreadId(v)]}`}
+                          onClick={() => {
+                            setEditingBookmark(spreadId(v));
+                            setBookmarkDraft(bookmarkNames[spreadId(v)]);
+                            setBookmarkRenameError("");
+                          }}
+                        >
+                          <svg
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                          >
+                            <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" />
+                            <path d="m14 5 5 5" />
+                          </svg>
+                        </button>
+                        <button
+                          disabled={locked}
+                          aria-label={`Remove bookmark for ${bookmarkNames[spreadId(v)]}`}
+                          onClick={() =>
+                            organizePages("remove-bookmark", spreadId(v))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))
+            ) : (
+              <p>
+                No bookmarks yet. Use “Add bookmark” to save the current spread
+                here.
+              </p>
+            )}
+          </div>
+        </DockMenu>
         <DockMenu label="Pages" icon="▤" disabled={locked}>
-          <section className="organizer" aria-label="Pages and bookmarks">
+          <section className="organizer" aria-label="Pages">
             <header className="organizer-header">
               <div>
-                <h2>Pages &amp; bookmarks</h2>
+                <h2>Pages</h2>
                 <p>
                   A spread is two facing pages. Add pages, organize your
-                  planner, or jump to a favorite.
+                  planner, or jump to a spread.
                 </p>
               </div>
             </header>
@@ -1092,13 +1296,6 @@ function App() {
                   {spreadTitle(view, settings.inserts)}
                 </p>
                 <div className="organizer-controls">
-                  <button
-                    disabled={locked}
-                    aria-pressed={!!bookmarked}
-                    onClick={() => organizePages("bookmark")}
-                  >
-                    {bookmarked ? "Remove bookmark" : "Bookmark spread"}
-                  </button>
                   <button
                     disabled={locked}
                     onClick={() => organizePages("duplicate")}
@@ -1179,27 +1376,6 @@ function App() {
               </section>
               <section className="organizer-card organizer-navigation">
                 <h3>Go to a spread</h3>
-                <h4>Bookmarks</h4>
-                <div className="bookmark-list" aria-label="Bookmarks">
-                  {(settings.bookmarks ?? []).length ? (
-                    organization
-                      .filter((v) => settings.bookmarks?.includes(spreadId(v)))
-                      .map((v) => (
-                        <button
-                          disabled={locked}
-                          key={spreadId(v)}
-                          onClick={() => navigate(v)}
-                        >
-                          ★ {spreadTitle(v, settings.inserts)}
-                        </button>
-                      ))
-                  ) : (
-                    <span>
-                      No bookmarks yet. Use “Bookmark spread” to save the
-                      current spread here.
-                    </span>
-                  )}
-                </div>
                 <label>
                   All spreads{" "}
                   <select
@@ -1831,6 +2007,24 @@ function App() {
           </>
         )}
       </aside>
+      {bookmarkNotice && (
+        <div
+          ref={bookmarkNoticeRef}
+          popover="manual"
+          className="bookmark-notice"
+        >
+          <span role="status" aria-live="polite" aria-atomic="true">
+            {bookmarkNotice.message}
+          </span>
+          <button
+            type="button"
+            aria-label="Dismiss bookmark notification"
+            onClick={() => setBookmarkNotice(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className="bottom">
         <div className="status-row">
           <span role="status">
@@ -1949,15 +2143,16 @@ function App() {
               Swipe horizontally with one finger or tap an outer paper edge to
               turn pages. Use the arrows for mouse navigation. Finger writing
               disables page gestures until you switch to Browse dates. Month
-              tabs jump instantly. Pages &amp; bookmarks adds custom spreads,
-              duplicates, ordering and bookmarks. Select / move: draw a box
-              around ink, then drag a selected stroke; switch tools to clear
-              selection. Use Text to place a text block, then select it to edit,
-              move, resize, or delete it. The palette changes selected text
-              color. Undo reverses ink movement. Highlighter is translucent;
-              Pencil varies with pressure. Export PDF creates a visual copy of
-              the current spread or entire binder. Create it, then tap Download
-              PDF and save in Files. PDFs cannot be opened as editable planners.
+              tabs jump instantly. Pages adds custom spreads, duplicates and
+              ordering. Bookmarks saves favorite spreads for quick access.
+              Select / move: draw a box around ink, then drag a selected stroke;
+              switch tools to clear selection. Use Text to place a text block,
+              then select it to edit, move, resize, or delete it. The palette
+              changes selected text color. Undo reverses ink movement.
+              Highlighter is translucent; Pencil varies with pressure. Export
+              PDF creates a visual copy of the current spread or entire binder.
+              Create it, then tap Download PDF and save in Files. PDFs cannot be
+              opened as editable planners.
             </p>
             <button
               onClick={() => {

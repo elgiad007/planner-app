@@ -7,6 +7,7 @@ export const SHORTCUTS = [
   ["Home", "Open the planner’s home view"],
   ["M / W", "Month / week view"],
   ["G", "Jump to date"],
+  ["K", "Add / remove bookmark for current spread"],
   ["P / N / H", "Pen / pencil / highlighter"],
   ["E / S / B", "Eraser / select and move / browse dates"],
   ["Hold Space", "Temporarily pan the spread"],

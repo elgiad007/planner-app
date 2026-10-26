@@ -1,4 +1,5 @@
 import { chromium } from "@playwright/test";
+import { openDock } from "./dock-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 await mkdir("test-results", { recursive: true });
@@ -132,6 +133,33 @@ try {
     .getByRole("button", { name: "Previous spread", exact: true })
     .click();
   await page.waitForFunction(() => !document.querySelector(".page-turn"));
+  await openDock(page, "Bookmarks");
+  await page.getByRole("button", { name: "Add bookmark", exact: true }).click();
+  const bookmarks = page.getByLabel("Saved bookmarks", { exact: true });
+  await bookmarks.locator(".bookmark-row").waitFor();
+  await page.reload();
+  await page.locator(".book").waitFor();
+  await openDock(page, "Bookmarks");
+  assert.equal(await bookmarks.locator(".bookmark-row").count(), 1);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Next spread", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector(".page-turn"));
+  await openDock(page, "Bookmarks");
+  await bookmarks.locator(".bookmark-row > button").first().click();
+  await page.waitForFunction(() => !document.querySelector(".page-turn"));
+  await openDock(page, "Bookmarks");
+  await page
+    .getByRole("button", { name: "Remove bookmark", exact: true })
+    .waitFor();
+  await bookmarks
+    .getByRole("button", { name: /^Remove bookmark for / })
+    .click();
+  await page.getByText("No bookmarks yet.", { exact: false }).waitFor();
+  await page.getByRole("button", { name: "Add bookmark", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Remove bookmark", exact: true })
+    .click();
+  await page.getByText("No bookmarks yet.", { exact: false }).waitFor();
   assert.deepEqual(errors, []);
   console.log(
     "Dock layout, popovers, keyboard focus, writing and page turns passed",

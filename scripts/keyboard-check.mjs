@@ -134,7 +134,7 @@ try {
     await page.getByRole("heading", { name: "Keyboard shortcuts" }).isVisible(),
     true,
   );
-  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 21);
+  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 22);
   await page.keyboard.press("Tab");
   assert.equal(
     await helpClose.evaluate((el) => el === document.activeElement),

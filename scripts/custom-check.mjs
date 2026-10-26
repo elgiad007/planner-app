@@ -182,8 +182,10 @@ try {
     moved,
   );
   await button("Pen").click();
+  await openDock(page, "Bookmarks");
+  await button("Add bookmark").click();
+  await saved();
   await openDock(page, "Pages");
-  await button("Bookmark spread").click();
   await saved();
   await button("Duplicate spread").click();
   await saved();
@@ -272,12 +274,15 @@ try {
     deleted.pages.find((p) => p.id === originalId),
     moved,
   );
+  await openDock(page, "Bookmarks");
   const bookmark = page
-    .getByLabel("Bookmarks", { exact: true })
-    .getByRole("button");
+    .getByLabel("Saved bookmarks", { exact: true })
+    .getByRole("button")
+    .first();
   await bookmark.click();
   await saved();
   assert.equal((await snapshot()).settings.view.insert, originalView.insert);
+  await openDock(page, "Pages");
   await open("month:2027-01-01");
   assert.deepEqual(
     (await snapshot()).pages.find((p) => p.id === legacyInk.id),

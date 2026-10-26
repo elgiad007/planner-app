@@ -45,7 +45,52 @@ export type Settings = {
   order?: View[];
   inserts?: CustomSpread[];
   bookmarks?: string[];
+  bookmarkNames?: Record<string, string>;
 };
+export function cleanBookmarkName(name: string) {
+  return name.normalize("NFC").trim().replace(/\s+/gu, " ");
+}
+export function bookmarkNameKey(name: string) {
+  return cleanBookmarkName(name).toLowerCase();
+}
+export function bookmarkNameError(name: string): string | null {
+  const clean = cleanBookmarkName(name);
+  if (!clean || clean.length > 60) return "Use 1–60 characters.";
+  if (!/^[\p{L}\p{M}\p{N} _'&().,:-]+$/u.test(clean))
+    return "Use letters, numbers, spaces, or - _ ' & ( ) . , :";
+  return null;
+}
+// Reserve custom names first, then give unnamed legacy bookmarks unique defaults.
+export function resolvedBookmarkNames(
+  settings: Settings,
+): Record<string, string> {
+  const names: Record<string, string> = {};
+  const used = new Set<string>();
+  const views = new Map(plannerOrder(settings).map((v) => [spreadId(v), v]));
+  for (const id of settings.bookmarks ?? []) {
+    const name = settings.bookmarkNames?.[id];
+    if (name !== undefined) {
+      names[id] = name;
+      used.add(bookmarkNameKey(name));
+    }
+  }
+  for (const id of settings.bookmarks ?? []) {
+    if (names[id] !== undefined) continue;
+    const view = views.get(id);
+    const base = (view ? spreadTitle(view, settings.inserts) : "Bookmark")
+      .normalize("NFC")
+      .replace(/[^\p{L}\p{M}\p{N} _'&().,:-]/gu, " ");
+    const title = cleanBookmarkName(base).slice(0, 60).trim() || "Bookmark";
+    let name = title;
+    for (let n = 2; used.has(bookmarkNameKey(name)); n++) {
+      const suffix = ` (${n})`;
+      name = title.slice(0, 60 - suffix.length).trimEnd() + suffix;
+    }
+    names[id] = name;
+    used.add(bookmarkNameKey(name));
+  }
+  return names;
+}
 export type Backup = {
   format: "my-pastel-planner";
   schemaVersion: 1 | 2;
@@ -212,15 +257,39 @@ export function validateBackup(raw: unknown): Backup {
         throw Error("Invalid tool size.");
     }
   }
-  if (b.pages.length > 20000) throw Error("Planner file contains too many pages.");
+  if (b.pages.length > 20000)
+    throw Error("Planner file contains too many pages.");
   const inserts = b.settings.inserts ?? [];
   const order = b.settings.order ?? [];
   const bookmarks = b.settings.bookmarks ?? [];
+  const bookmarkNames = b.settings.bookmarkNames;
+  if (bookmarkNames !== undefined) {
+    if (
+      !bookmarkNames ||
+      typeof bookmarkNames !== "object" ||
+      Array.isArray(bookmarkNames)
+    )
+      throw Error("Invalid bookmark names.");
+    const usedNames = new Set<string>();
+    for (const [id, name] of Object.entries(bookmarkNames)) {
+      if (
+        !Array.isArray(bookmarks) ||
+        !bookmarks.includes(id) ||
+        typeof name !== "string" ||
+        bookmarkNameError(name)
+      )
+        throw Error("Invalid bookmark name.");
+      const key = bookmarkNameKey(name);
+      if (usedNames.has(key)) throw Error("Bookmark names must be unique.");
+      usedNames.add(key);
+    }
+  }
   if (
     b.schemaVersion === 1 &&
     (inserts.length ||
       order.length ||
       bookmarks.length ||
+      (bookmarkNames && Object.keys(bookmarkNames).length) ||
       b.settings.view.insert)
   )
     throw Error("Custom pages require a version 2 planner file.");
@@ -353,7 +422,9 @@ export function validateBackup(raw: unknown): Backup {
           pt.pressure < 0 ||
           pt.pressure > 1
         )
-          throw Error("Planner file contains invalid or excessive stroke points.");
+          throw Error(
+            "Planner file contains invalid or excessive stroke points.",
+          );
       }
     }
   }
@@ -417,6 +488,16 @@ export function validateBackup(raw: unknown): Backup {
             })),
             order: order.map(cleanView),
             bookmarks: [...bookmarks],
+            ...(bookmarkNames !== undefined
+              ? {
+                  bookmarkNames: Object.fromEntries(
+                    Object.entries(bookmarkNames).map(([id, name]) => [
+                      id,
+                      cleanBookmarkName(name),
+                    ]),
+                  ),
+                }
+              : {}),
           }
         : {}),
     },
