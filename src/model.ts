@@ -37,6 +37,7 @@ export const DEFAULT_PREFERENCES = {
 };
 export type ToolPreferences = typeof DEFAULT_PREFERENCES;
 export type Settings = {
+  plannerName?: string;
   preferences?: Partial<ToolPreferences>;
   showHolidays?: boolean;
   view: View;
@@ -147,13 +148,20 @@ export function validateBackup(raw: unknown): Backup {
     !Number.isFinite(Date.parse(b.exportedAt)) ||
     typeof b.appVersion !== "string"
   )
-    throw Error("This is not a supported planner backup. No data was changed.");
+    throw Error("This is not a supported planner file. No data was changed.");
+  if (
+    b.settings.plannerName !== undefined &&
+    (typeof b.settings.plannerName !== "string" ||
+      !b.settings.plannerName.trim() ||
+      b.settings.plannerName.length > 100)
+  )
+    throw Error("Planner name must contain 1 to 100 characters.");
   if (
     b.settings.lastBackup !== undefined &&
     (typeof b.settings.lastBackup !== "string" ||
       !Number.isFinite(Date.parse(b.settings.lastBackup)))
   )
-    throw Error("Invalid backup date.");
+    throw Error("Invalid file download date.");
   if (
     b.settings.showHolidays !== undefined &&
     typeof b.settings.showHolidays !== "boolean"
@@ -204,7 +212,7 @@ export function validateBackup(raw: unknown): Backup {
         throw Error("Invalid tool size.");
     }
   }
-  if (b.pages.length > 20000) throw Error("Backup contains too many pages.");
+  if (b.pages.length > 20000) throw Error("Planner file contains too many pages.");
   const inserts = b.settings.inserts ?? [];
   const order = b.settings.order ?? [];
   const bookmarks = b.settings.bookmarks ?? [];
@@ -215,7 +223,7 @@ export function validateBackup(raw: unknown): Backup {
       bookmarks.length ||
       b.settings.view.insert)
   )
-    throw Error("Custom pages require a version 2 backup.");
+    throw Error("Custom pages require a version 2 planner file.");
   if (
     !Array.isArray(inserts) ||
     inserts.length > 5000 ||
@@ -280,7 +288,7 @@ export function validateBackup(raw: unknown): Backup {
       ids.has(p.id) ||
       !Array.isArray(p.strokes)
     )
-      throw Error("Backup contains invalid or duplicate pages.");
+      throw Error("Planner file contains invalid or duplicate pages.");
     if (p.textBlocks !== undefined) {
       if (!Array.isArray(p.textBlocks) || p.textBlocks.length > 1000)
         throw Error("Invalid text blocks.");
@@ -329,7 +337,7 @@ export function validateBackup(raw: unknown): Backup {
         !Array.isArray(s.points) ||
         !s.points.length
       )
-        throw Error("Backup contains invalid handwriting.");
+        throw Error("Planner file contains invalid handwriting.");
       strokeIds.add(s.id);
       for (const pt of s.points) {
         if (
@@ -345,7 +353,7 @@ export function validateBackup(raw: unknown): Backup {
           pt.pressure < 0 ||
           pt.pressure > 1
         )
-          throw Error("Backup contains invalid or excessive stroke points.");
+          throw Error("Planner file contains invalid or excessive stroke points.");
       }
     }
   }
@@ -380,6 +388,9 @@ export function validateBackup(raw: unknown): Backup {
       })),
     })),
     settings: {
+      ...(b.settings.plannerName !== undefined
+        ? { plannerName: b.settings.plannerName.trim() }
+        : {}),
       view: cleanView(b.settings.view),
       ...(preferences !== undefined
         ? {

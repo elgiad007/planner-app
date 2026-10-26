@@ -46,7 +46,13 @@ import {
 } from "./model";
 import "./style.css";
 
-function download(data: unknown, prefix = "my-pastel-planner") {
+const DEFAULT_PLANNER_NAME = "My Pastel Planner";
+function download(data: unknown, prefix?: string) {
+  prefix ??=
+    ((data as Backup)?.settings?.plannerName || DEFAULT_PLANNER_NAME)
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, "-")
+      .replace(/[. ]+$/g, "")
+      .slice(0, 100) || "planner";
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(data)], { type: "application/json" }),
   );
@@ -59,6 +65,10 @@ function download(data: unknown, prefix = "my-pastel-planner") {
 function App() {
   const [pages, setPages] = useState<Record<string, Page>>({}),
     [settings, setSettings] = useState<Settings>({ view: initialView });
+  const plannerName = settings.plannerName || DEFAULT_PLANNER_NAME;
+  useEffect(() => {
+    document.title = plannerName;
+  }, [plannerName]);
   const [ready, setReady] = useState(false),
     [recoveryAllowed, setRecoveryAllowed] = useState(false),
     [fatal, setFatal] = useState(""),
@@ -140,7 +150,7 @@ function App() {
     saveQueue.current = new SaveQueue((e) => {
       failed.current = true;
       setError(
-        `Could not save: ${String(e)}. Keep the app open. Download a backup or retry.`,
+        `Could not save: ${String(e)}. Keep the app open. Use Save planner to download a file, or retry.`,
       );
     });
   const [hand, setHand] = useState(false);
@@ -192,7 +202,7 @@ function App() {
           setPages(p);
           setSettings(data.settings);
           setReady(true);
-          setStatus("Saved on this iPad");
+          setStatus("Changes saved on this device");
         })
         .catch((e) => {
           if (live) {
@@ -268,7 +278,7 @@ function App() {
             )
               setUpdate(reg);
             else if (worker.state === "installed")
-              setStatus("Saved · offline app ready");
+              setStatus("Saved on this device · offline app ready");
           });
         });
       })
@@ -283,12 +293,14 @@ function App() {
   }, []);
   function persist(key: string, work: () => Promise<void>) {
     pending.current++;
-    setStatus("Saving…");
+    setStatus("Saving on this device…");
     queue.current = saveQueue.current!.enqueue(key, work).finally(() => {
       pending.current--;
       if (!pending.current)
         setStatus(
-          failed.current ? "Save needs attention" : "Saved on this iPad",
+          failed.current
+            ? "Save needs attention"
+            : "Changes saved on this device",
         );
     });
   }
@@ -449,7 +461,7 @@ function App() {
         if (
           !current.view.insert ||
           !confirm(
-            "Delete this custom spread and its handwriting? This cannot be undone. Download a backup first if you want to keep a copy.",
+            "Delete this custom spread and its handwriting? This cannot be undone. Save a planner file first if you want to keep a copy.",
           )
         )
           return;
@@ -485,9 +497,23 @@ function App() {
       setStatus(
         action === "restore-order"
           ? "Original spread order restored"
-          : "Saved on this iPad",
+          : "Changes saved on this device",
       );
     });
+  }
+  function renamePlanner() {
+    if (lock()) return;
+    const entered = prompt("Planner name (up to 100 characters)", plannerName);
+    if (entered === null) return;
+    const name = entered.trim();
+    if (!name || name.length > 100) {
+      setError("Planner name must contain 1 to 100 characters.");
+      return;
+    }
+    const next = { ...settingsRef.current, plannerName: name };
+    settingsRef.current = next;
+    setSettings(next);
+    persist("settings", () => saveSettings(next));
   }
   function backup() {
     void exclusive(async () => {
@@ -499,25 +525,25 @@ function App() {
       await saveSettings(next);
       settingsRef.current = next;
       setSettings(next);
-      setStatus("Backup downloaded — save it in Files");
+      setStatus("Planner file downloaded — keep it in a safe location");
     });
   }
   async function restore(file?: File) {
     if (!file) return;
     await exclusive(async () => {
       if (file.size > 100 * 1024 * 1024)
-        throw Error("Backup is too large (maximum 100 MB).");
+        throw Error("Planner file is too large (maximum 100 MB).");
       const data = migrateBackup(JSON.parse(await file.text()));
       if (
         !confirm(
-          "Replace this iPad’s planner with this backup? A backup of the current planner will download first. Save that file in Files before continuing.",
+          `Open “${data.settings.plannerName || DEFAULT_PLANNER_NAME}” and replace “${settingsRef.current.plannerName || DEFAULT_PLANNER_NAME}” on this device? A safety copy of the current planner will download first. Keep that file in a safe location before continuing.`,
         )
       )
         return;
       download(snapshot());
       if (
         !confirm(
-          "Has the safety backup been saved? Select OK to replace the planner, or Cancel to leave it unchanged.",
+          "Have you kept the safety copy in a safe location? Select OK to replace the planner, or Cancel to leave it unchanged.",
         )
       )
         return;
@@ -530,7 +556,7 @@ function App() {
       history.current = { past: [], future: [] };
       failed.current = false;
       setError("");
-      setStatus("Backup restored and saved");
+      setStatus("Planner opened · changes saved on this device");
     });
   }
   function retry() {
@@ -538,7 +564,7 @@ function App() {
       await replacePlanner(snapshot());
       failed.current = false;
       setError("");
-      setStatus("Saved on this iPad");
+      setStatus("Changes saved on this device");
     });
   }
   async function recoveryCopy() {
@@ -558,18 +584,18 @@ function App() {
     setOperation(true);
     try {
       if (file.size > 100 * 1024 * 1024)
-        throw Error("Backup is too large (maximum 100 MB).");
+        throw Error("Planner file is too large (maximum 100 MB).");
       const data = migrateBackup(JSON.parse(await file.text()));
       if (
         !confirm(
-          "Restore this JSON backup? The unreadable local records will download as a recovery file first. Save that file before replacing anything.",
+          "Open this planner file? The unreadable local records will download as a recovery file first. Save that file before replacing anything.",
         )
       )
         return;
       await recoveryCopy();
       if (
         !confirm(
-          "Has the recovery file been saved in Files? Select OK to replace local data with the validated backup, or Cancel to leave it unchanged.",
+          "Has the recovery file been saved in Files? Select OK to replace local data with the validated planner file, or Cancel to leave it unchanged.",
         )
       )
         return;
@@ -608,7 +634,7 @@ function App() {
           setPdfProgress("PDF export cancelled. Your planner is unchanged.");
         else {
           setPdfProgress(
-            "PDF export failed. Try the current spread or export a JSON backup.",
+            "PDF export failed. Try the current spread or save an editable planner file.",
           );
           throw e;
         }
@@ -670,7 +696,7 @@ function App() {
       if (reg.waiting) {
         setUpdate(reg);
         setUpdateMessage(
-          "An update is available. Save a backup before updating.",
+          "An update is available. Save a planner file before updating.",
         );
       } else {
         setUpdateMessage("You’re up to date.");
@@ -688,7 +714,7 @@ function App() {
   function installUpdate() {
     void exclusive(async () => {
       if (failed.current)
-        throw Error("Retry saving or download a backup before updating.");
+        throw Error("Retry saving or save a planner file before updating.");
       const worker = update?.waiting;
       if (!worker)
         throw Error(
@@ -697,10 +723,10 @@ function App() {
       download(snapshot());
       if (
         !confirm(
-          "A backup of your current planner has been downloaded. Save it in Files before continuing. Has the backup been saved? Select OK to update, or Cancel to keep the planner open.",
+          "A file of your current planner has been downloaded. Keep it in a safe location before continuing. Have you kept the file? Select OK to update, or Cancel to keep the planner open.",
         )
       ) {
-        setStatus("Update paused — save the backup, then try again");
+        setStatus("Update paused — keep the planner file, then try again");
         return;
       }
       navigator.serviceWorker.addEventListener(
@@ -854,13 +880,13 @@ function App() {
               Download recovery data
             </button>
             <p>
-              Recovery data preserves local records for troubleshooting. To
-              resume from a known good JSON backup, select it below. Existing
-              records are preserved until you confirm replacement.
+              Recovery data preserves local records for troubleshooting. To open
+              a known good planner file, select it below. Existing records are
+              preserved until you confirm replacement.
             </p>
             <input
               disabled={operation}
-              aria-label="Recovery backup"
+              aria-label="Recovery planner file"
               type="file"
               accept=".json,application/json"
               onChange={(e) => {
@@ -887,6 +913,32 @@ function App() {
   const content = contentIndex(settings, pages);
   return (
     <main className="planner-shell">
+      <header className="planner-identity">
+        <h1 title={plannerName}>{plannerName}</h1>
+        <button
+          className="planner-rename"
+          type="button"
+          aria-label="Edit planner name"
+          title="Edit planner name"
+          disabled={locked}
+          onClick={renamePlanner}
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m16 3 5 5-12 12-6 1 1-6Z" />
+            <path d="m14 5 5 5M4 15l5 5" />
+          </svg>
+        </button>
+      </header>
       <aside className="right-dock dock" aria-label="Planner options">
         <div
           className="dock-brand"
@@ -1201,21 +1253,29 @@ function App() {
           </div>
         </DockMenu>
         <DockMenu label="Files" icon="⇩" disabled={locked}>
+          <button disabled={locked} onClick={renamePlanner}>
+            Rename planner…
+          </button>
+          <p>
+            Changes are kept in this browser on this device. Nothing is synced
+            to the cloud. Use Save planner to download a file you can keep and
+            open later.
+          </p>
           {(!settings.lastBackup ||
             Date.now() - Date.parse(settings.lastBackup) > 7 * 86400000) && (
             <p className="backup-note">
               {settings.lastBackup
-                ? "It has been over a week since a backup download. "
+                ? "It has been over a week since a planner file download. "
                 : "Your handwriting stays on this device. "}
-              Download a JSON backup and save it in Files.
+              Use Save planner and keep the downloaded file in a safe location.
             </p>
           )}
           <div className="file-actions">
             <button disabled={locked} onClick={backup}>
-              Download backup
+              Save planner…
             </button>
             <button disabled={locked} onClick={() => input.current?.click()}>
-              Restore
+              Open planner…
             </button>
             <input
               ref={input}
@@ -1231,7 +1291,7 @@ function App() {
           <section className="pdf-panel" aria-label="PDF export">
             <p>
               PDF includes page templates, handwriting, and text, with one
-              two-page spread per sheet. Keep JSON backups for editable
+              two-page spread per sheet. Keep saved planner files for editable
               recovery.
             </p>
             <label>
@@ -1762,9 +1822,9 @@ function App() {
         )}
         {update && (
           <div className="update">
-            An app update is ready. Download and save a backup before updating.{" "}
+            An app update is ready. Save a planner file before updating.{" "}
             <button disabled={locked} onClick={installUpdate}>
-              Back up and update
+              Save planner and update
             </button>
           </div>
         )}
@@ -1793,7 +1853,7 @@ function App() {
             {update && (
               <p>
                 <button disabled={locked} onClick={installUpdate}>
-                  Back up and update
+                  Save planner and update
                 </button>
               </p>
             )}
@@ -1844,11 +1904,11 @@ function App() {
               closing and reopening it in Airplane Mode.
             </p>
             <p>
-              Download backups regularly and save them in Files, outside the
-              app. Clearing website data or losing your iPad can remove local
-              handwriting. A backup contains editable ink and is readable,
-              unencrypted JSON. Restoring replaces the local planner after
-              confirmation.
+              Save planner…s regularly and save them in Files, outside the app.
+              Clearing website data or losing your iPad can remove local planner
+              data. A saved planner file contains editable ink and text and is
+              readable, unencrypted JSON. Open planner replaces the active
+              planner after confirmation.
             </p>
             <p>
               Swipe horizontally with one finger or tap an outer paper edge to
@@ -1862,7 +1922,7 @@ function App() {
               color. Undo reverses ink movement. Highlighter is translucent;
               Pencil varies with pressure. Export PDF creates a visual copy of
               the current spread or entire binder. Create it, then tap Download
-              PDF and save in Files. PDFs cannot restore editable handwriting.
+              PDF and save in Files. PDFs cannot be opened as editable planners.
             </p>
             <button
               onClick={() => {

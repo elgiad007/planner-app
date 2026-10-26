@@ -22,7 +22,7 @@ export async function downloadBackup(page) {
   await openDock(page, "Files");
   const downloading = page.waitForEvent("download");
   await page
-    .getByRole("button", { name: "Download backup", exact: true })
+    .getByRole("button", { name: "Save planner…", exact: true })
     .click();
   const result = JSON.parse(
     await readFile(await (await downloading).path(), "utf8"),

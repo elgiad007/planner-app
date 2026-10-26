@@ -49,7 +49,10 @@ try {
     "no destination leaves the view unchanged",
   );
   // Start the remaining shortcut checks with a fresh undo history.
-  await page.getByRole("status").filter({ hasText: "Saved on this iPad" }).waitFor();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "Changes saved on this device" })
+    .waitFor();
   await page.reload();
   await page.locator(".book").waitFor();
   await press("Home");

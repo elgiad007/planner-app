@@ -85,7 +85,7 @@ try {
     });
     await page
       .getByRole("status")
-      .filter({ hasText: "Backup restored and saved" })
+      .filter({ hasText: "Planner opened · changes saved on this device" })
       .waitFor();
   }
   const start = performance.now();
@@ -232,7 +232,7 @@ try {
     pages: data.pages.filter((p) => p.id.startsWith("month:")),
     settings: { view },
   };
-  await page.getByLabel("Recovery backup").setInputFiles({
+  await page.getByLabel("Recovery planner file").setInputFiles({
     name: "good.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(small)),

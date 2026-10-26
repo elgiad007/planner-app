@@ -124,7 +124,7 @@ try {
   });
   await page
     .getByRole("status")
-    .filter({ hasText: "Backup restored and saved" })
+    .filter({ hasText: "Planner opened · changes saved on this device" })
     .waitFor();
   const restored = await downloadBackup(page);
   assert.deepEqual(restored.pages, backup.pages);

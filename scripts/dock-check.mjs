@@ -31,7 +31,9 @@ try {
       const r = document.querySelector(".book").getBoundingClientRect();
       const p = document.querySelector(".page").getBoundingClientRect();
       const doc = document.documentElement;
-      const viewport = document.querySelector(".zoom-viewport").getBoundingClientRect();
+      const viewport = document
+        .querySelector(".zoom-viewport")
+        .getBoundingClientRect();
       return {
         x: r.x,
         y: r.y,
@@ -92,7 +94,7 @@ try {
     false,
   );
   await page
-    .getByRole("button", { name: "Download backup", exact: true })
+    .getByRole("button", { name: "Save planner…", exact: true })
     .waitFor();
   await page.screenshot({ path: "test-results/docks-files.png" });
   await page.mouse.click(600, 20);

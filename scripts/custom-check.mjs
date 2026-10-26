@@ -297,7 +297,7 @@ try {
   });
   await page
     .getByRole("status")
-    .filter({ hasText: "Backup restored" })
+    .filter({ hasText: "Planner opened" })
     .waitFor();
   const restored = await snapshot();
   assert.deepEqual(restored.pages, reordered.pages);

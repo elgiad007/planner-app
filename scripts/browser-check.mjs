@@ -23,7 +23,7 @@ try {
   const second = await context.newPage();
   await second.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
   await second.getByRole("alert").filter({ hasText: "already open" }).waitFor();
-  assert.equal(await second.getByLabel("Recovery backup").count(), 0);
+  assert.equal(await second.getByLabel("Recovery planner file").count(), 0);
   await second.close();
   const ink = page.locator("canvas").first(),
     rect = await ink.boundingBox();
@@ -37,7 +37,7 @@ try {
   await page.mouse.up();
   await page
     .getByRole("status")
-    .filter({ hasText: "Saved on this iPad" })
+    .filter({ hasText: "Changes saved on this device" })
     .waitFor();
   async function backup() {
     const data = await downloadBackup(page);
@@ -69,7 +69,7 @@ try {
   await page.getByRole("button", { name: "Retry save", exact: true }).click();
   await page
     .getByRole("status")
-    .filter({ hasText: "Saved on this iPad" })
+    .filter({ hasText: "Changes saved on this device" })
     .waitFor();
   assert.equal((await backup()).pages[0].strokes.length, 2);
   await page.getByRole("button", { name: "Eraser", exact: true }).click();
@@ -109,7 +109,7 @@ try {
   });
   await page
     .getByRole("status")
-    .filter({ hasText: "Backup restored and saved" })
+    .filter({ hasText: "Planner opened · changes saved on this device" })
     .waitFor();
   assert.deepEqual((await backup()).pages, written.pages);
   // Reject a malformed import without replacing current content.
