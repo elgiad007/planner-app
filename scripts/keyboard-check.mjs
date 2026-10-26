@@ -20,6 +20,39 @@ try {
     await page.locator(".zoom-viewport").focus();
     await page.keyboard.press(key);
   };
+  const write = async () => {
+    const rect = await page.locator("canvas").first().boundingBox();
+    await page.mouse.move(rect.x + 100, rect.y + 130);
+    await page.mouse.down();
+    await page.mouse.move(rect.x + 150, rect.y + 170, { steps: 8 });
+    await page.mouse.up();
+  };
+  await write();
+  await page
+    .getByRole("button", { name: "February 2027", exact: true })
+    .click();
+  await write();
+  await press("Shift+ArrowLeft");
+  assert.equal(
+    await page.locator(".spread-navigation > span").innerText(),
+    "January 2027",
+  );
+  await press("Shift+ArrowRight");
+  assert.equal(
+    await page.locator(".spread-navigation > span").innerText(),
+    "February 2027",
+  );
+  await press("Shift+ArrowRight");
+  assert.equal(
+    await page.locator(".spread-navigation > span").innerText(),
+    "February 2027",
+    "no destination leaves the view unchanged",
+  );
+  // Start the remaining shortcut checks with a fresh undo history.
+  await page.getByRole("status").filter({ hasText: "Saved on this iPad" }).waitFor();
+  await page.reload();
+  await page.locator(".book").waitFor();
+  await press("Home");
   for (const [key, label] of [
     ["t", "Text"],
     ["n", "Pencil"],
@@ -83,7 +116,7 @@ try {
     await page.getByRole("heading", { name: "Keyboard shortcuts" }).isVisible(),
     true,
   );
-  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 18);
+  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 19);
   await page.keyboard.press("Tab");
   assert.equal(
     await helpClose.evaluate((el) => el === document.activeElement),
@@ -132,7 +165,9 @@ try {
   await press("Control+y");
   assert.equal(await undo.isEnabled(), true);
   await press("]");
-  await page.getByRole("button", { name: "Tool settings", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Tool settings", exact: true })
+    .click();
   assert.equal(
     await page.getByLabel("Pen thickness", { exact: true }).inputValue(),
     "3",

@@ -27,6 +27,7 @@ import {
   restoreOriginalOrder,
   spreadId,
   spreadTitle,
+  contentIndex,
   duplicateSpread,
   type Insert,
   initialView,
@@ -724,6 +725,15 @@ function App() {
         }
         return;
       }
+      if (e.shiftKey && (key === "arrowleft" || key === "arrowright")) {
+        e.preventDefault();
+        if (!e.repeat) {
+          const content = contentIndex(settingsRef.current, pagesRef.current);
+          const next = key === "arrowleft" ? content.previous : content.next;
+          if (next) navigate(next);
+        }
+        return;
+      }
       if (e.key === " " && !target?.closest("button, a, [role='button']")) {
         e.preventDefault();
         setSpacePan(true);
@@ -816,6 +826,7 @@ function App() {
   const year = parseDate(view.date).getUTCFullYear();
   const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
   const bookmarked = settings.bookmarks?.includes(spreadId(view));
+  const content = contentIndex(settings, pages);
   return (
     <main className="planner-shell">
       <aside className="right-dock dock" aria-label="Planner options">
@@ -1218,6 +1229,30 @@ function App() {
       </aside>
       <div className="workspace">
         <div className="spread-navigation">
+          <div
+            className="content-navigation"
+            role="group"
+            aria-label="Spreads with content"
+          >
+            <button
+              disabled={locked || !content.previous}
+              title="Previous with content (Shift+←)"
+              aria-keyshortcuts="Shift+ArrowLeft"
+              aria-label="Previous with content"
+              onClick={() => content.previous && navigate(content.previous)}
+            >
+              ‹ ●
+            </button>
+            <button
+              disabled={locked || !content.next}
+              title="Next with content (Shift+→)"
+              aria-keyshortcuts="Shift+ArrowRight"
+              aria-label="Next with content"
+              onClick={() => content.next && navigate(content.next)}
+            >
+              ● ›
+            </button>
+          </div>
           <button
             disabled={locked}
             aria-label="Previous spread"
@@ -1456,6 +1491,11 @@ function App() {
                 <button
                   disabled={locked}
                   key={month}
+                  data-has-content={content.months.has(
+                    `${year}-${String(i + 1).padStart(2, "0")}`,
+                  )}
+                  aria-label={`${month} ${year}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? ", has content" : ""}`}
+                  title={`${month}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? " — has content" : ""}`}
                   className={
                     parseDate(view.date).getUTCMonth() === i ? "active" : ""
                   }

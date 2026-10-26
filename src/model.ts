@@ -460,6 +460,39 @@ export const INSERTS: Insert[] = [
 export function spreadId(v: View) {
   return pageIds(v)[0].replace(/:left$/, "");
 }
+export function spreadHasContent(v: View, pages: Record<string, Page>) {
+  return pageIds(v).some((id) => {
+    const page = pages[id];
+    return (
+      page?.strokes.some((s) => s.points.length > 0) ||
+      page?.textBlocks?.some((t) => t.text.trim().length > 0) ||
+      false
+    );
+  });
+}
+export function contentIndex(settings: Settings, pages: Record<string, Page>) {
+  const order = plannerOrder(settings);
+  const occupied = order.filter((v) => spreadHasContent(v, pages));
+  const months = new Set<string>();
+  for (const v of occupied) {
+    months.add(v.date.slice(0, 7));
+    if (!v.insert && v.mode === "week") {
+      months.add(sunday(v.date).slice(0, 7));
+      months.add(addDays(sunday(v.date), 6).slice(0, 7));
+    }
+  }
+  const current = order.findIndex(
+    (v) => spreadId(v) === spreadId(settings.view),
+  );
+  return {
+    months,
+    previous: order
+      .slice(0, current)
+      .reverse()
+      .find((v) => spreadHasContent(v, pages)),
+    next: order.slice(current + 1).find((v) => spreadHasContent(v, pages)),
+  };
+}
 export function spreadTitle(v: View, inserts: CustomSpread[] = []) {
   return v.insert
     ? (inserts.find((i) => i.id === v.insert)?.title ?? "Insert")

@@ -1,5 +1,6 @@
 export const SHORTCUTS = [
   ["← / →", "Previous / next spread"],
+  ["Shift+← / Shift+→", "Previous / next spread with content"],
   ["T", "Text tool"],
   ["Home", "Open the planner’s home view"],
   ["M / W", "Month / week view"],
