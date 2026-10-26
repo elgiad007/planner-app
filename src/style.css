@@ -1538,3 +1538,11 @@ main {
     max-width: calc(50vw - 16px);
   }
 }
+
+.planner-page-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: uppercase;
+}

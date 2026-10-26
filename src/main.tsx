@@ -1512,6 +1512,7 @@ function App() {
               <div className={"page page-" + side} key={id}>
                 <div className="page-content">
                   <Template
+                    plannerName={plannerName}
                     showHolidays={settings.showHolidays !== false}
                     view={view}
                     insert={currentInsert}
@@ -1582,6 +1583,7 @@ function App() {
                     <div className={"page page-" + side} key={id}>
                       <div className="page-content">
                         <Template
+                          plannerName={plannerName}
                           showHolidays={settings.showHolidays !== false}
                           view={turn.next}
                           insert={settings.inserts?.find(

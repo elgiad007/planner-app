@@ -15,8 +15,10 @@ export function Template({
   onWeek,
   insert,
   showHolidays = true,
+  plannerName = "My Pastel Planner",
 }: {
   showHolidays?: boolean;
+  plannerName?: string;
   insert?: CustomSpread;
   view: View;
   side: number;
@@ -25,6 +27,7 @@ export function Template({
   if (insert?.source)
     return (
       <Template
+        plannerName={plannerName}
         view={insert.source}
         side={side}
         onWeek={onWeek}
@@ -110,7 +113,9 @@ export function Template({
     return (
       <div className="template">
         <header className="dated-header">
-          <span className="eyebrow">MY PASTEL PLANNER</span>
+          <span className="eyebrow planner-page-title" title={plannerName}>
+            {plannerName}
+          </span>
           <h1 aria-label={`${MONTHS[month]} ${d.getUTCFullYear()}`}>
             {MONTHS[month]}
           </h1>

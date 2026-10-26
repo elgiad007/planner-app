@@ -46,6 +46,11 @@ try {
   await page.reload();
   await page.locator(".book").waitFor();
   assert.equal(await page.title(), "Work Planner");
+  assert.deepEqual(
+    await page.locator(".book .planner-page-title").allTextContents(),
+    ["Work Planner", "Work Planner"],
+  );
+  await page.screenshot({ path: "test-results/custom-month-title.png" });
   await openDock(page, "Files");
   const downloading = page.waitForEvent("download");
   await page
@@ -71,6 +76,32 @@ try {
     dialogs[0].includes("Personal Planner") &&
       dialogs[0].includes("Work Planner"),
   );
+  assert.deepEqual(
+    await page.locator(".book .planner-page-title").allTextContents(),
+    ["Personal Planner", "Personal Planner"],
+  );
+  // Verify the isolated PDF renderer receives the same name as the live pages.
+  await page.evaluate(() => {
+    window.pdfPlannerNames = [];
+    window.pdfObserver = new MutationObserver(() => {
+      const names = [
+        ...document.querySelectorAll(".pdf-paper .planner-page-title"),
+      ].map((el) => el.textContent);
+      window.pdfPlannerNames.push(...names);
+    });
+    window.pdfObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  });
+  await page.getByRole("button", { name: "Create PDF", exact: true }).click();
+  await page.getByRole("link", { name: "Download PDF", exact: true }).waitFor();
+  assert.ok(
+    await page.evaluate(() =>
+      window.pdfPlannerNames.includes("Personal Planner"),
+    ),
+  );
+  await page.evaluate(() => window.pdfObserver.disconnect());
   delete data.settings.plannerName;
   await page.locator("input[type=file]").setInputFiles({
     name: "legacy.json",

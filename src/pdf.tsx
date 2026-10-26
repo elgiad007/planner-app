@@ -25,7 +25,7 @@ export async function createPdf(
     compress: true,
   });
   pdf.setProperties({
-    title: "My Pastel Planner",
+    title: data.settings.plannerName || "My Pastel Planner",
     creator: "My Pastel Planner 0.4.0",
   });
   const host = document.createElement("div");
@@ -47,6 +47,7 @@ export async function createPdf(
           root.render(
             <div className="page-content">
               <Template
+                plannerName={data.settings.plannerName}
                 showHolidays={data.settings.showHolidays !== false}
                 view={view}
                 side={side}
