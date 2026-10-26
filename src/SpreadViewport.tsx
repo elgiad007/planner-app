@@ -37,6 +37,7 @@ export function SpreadViewport({
   const pen = useRef<number | null>(null);
   const penUntil = useRef(0);
   const clickUntil = useRef(0);
+  const dismissingPanel = useRef(false);
   const anchor = useRef<{
     x: number;
     y: number;
@@ -140,6 +141,12 @@ export function SpreadViewport({
         aria-label="Scrollable planner spread"
         onClickCapture={(e) => {
           if (!onSurface(e.target)) return;
+          if (dismissingPanel.current) {
+            dismissingPanel.current = false;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           if (pinchSession.current || performance.now() < clickUntil.current) {
             e.preventDefault();
             e.stopPropagation();
@@ -147,6 +154,18 @@ export function SpreadViewport({
         }}
         onPointerDownCapture={(e) => {
           if (!onSurface(e.target)) return;
+          // Light dismissal otherwise also starts ink, erasure, or text placement.
+          // Read the native state before pointerup dismisses the popover.
+          const panels = document.querySelectorAll<HTMLElement>(
+            ".dock-panel:popover-open",
+          );
+          dismissingPanel.current = panels.length > 0;
+          if (dismissingPanel.current) {
+            panels.forEach((panel) => panel.hidePopover());
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           if (e.pointerType === "pen") {
             if (pinchSession.current) {
               e.preventDefault();
