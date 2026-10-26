@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { APP_VERSION } from "./version";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SaveQueue } from "./saveQueue";
+import { savePlannerFile } from "./savePlannerFile";
 import { SpreadViewport } from "./SpreadViewport";
 import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
@@ -51,18 +52,21 @@ import {
 import "./style.css";
 
 const DEFAULT_PLANNER_NAME = "My Pastel Planner";
-function download(data: unknown, prefix?: string) {
+function plannerFilename(data: unknown, prefix?: string) {
   prefix ??=
     ((data as Backup)?.settings?.plannerName || DEFAULT_PLANNER_NAME)
       .replace(/[<>:"/\\|?*\x00-\x1f]/g, "-")
       .replace(/[. ]+$/g, "")
       .slice(0, 100) || "planner";
+  return `${prefix}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+}
+function download(data: unknown, prefix?: string) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(data)], { type: "application/json" }),
   );
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${prefix}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  a.download = plannerFilename(data, prefix);
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
@@ -595,8 +599,15 @@ function App() {
     persist("settings", () => saveSettings(next));
   }
   function backup() {
+    if (lock()) return;
+    const data = snapshot();
+    const saving = savePlannerFile(data, plannerFilename(data), () =>
+      download(data),
+    );
     void exclusive(async () => {
-      download(snapshot());
+      const result = await saving;
+      if (result.status === "cancelled") return;
+      if (result.status === "failed") throw result.error;
       const next = {
         ...settingsRef.current,
         lastBackup: new Date().toISOString(),
@@ -604,7 +615,11 @@ function App() {
       await saveSettings(next);
       settingsRef.current = next;
       setSettings(next);
-      setStatus("Planner file downloaded — keep it in a safe location");
+      setStatus(
+        result.status === "saved"
+          ? "Planner file saved to your chosen location"
+          : "Planner file downloaded — keep it in a safe location",
+      );
     });
   }
   async function restore(file?: File) {

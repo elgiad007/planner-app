@@ -16,6 +16,6 @@ On Windows, double-click `start-test-server.cmd` to test current source locally.
 
 See [documentation](doc/README.md), [hosting instructions](doc/running-and-hosting.md), and the [Phase 4 acceptance checklist](doc/phase-4-testing.md). Real-iPad acceptance remains required. No deployment has been performed.
 
-Planner names can be changed with **Files → Rename planner…**. The active name appears above the planner and in the browser tab. **Save planner…** downloads an editable JSON file with that name; **Open planner…** replaces the active planner after a safety download and confirmation. Older planner files remain supported.
+Planner names can be changed with **Files → Rename planner…**. The active name appears above the planner and in the browser tab. **Save planner…** opens a Save As dialog in supported browsers so you can choose the folder and filename for your editable JSON file. Other browsers use a download. Cancelling the dialog leaves the backup date unchanged. **Open planner…** replaces the active planner after a safety download and confirmation. Older planner files remain supported.
 
 Changes are saved automatically in this browser on this device. There is no cloud sync. Keep downloaded planner files in a safe location; clearing browser storage or losing the device can remove the local planner. PDFs are visual exports and cannot be opened as editable planners.
