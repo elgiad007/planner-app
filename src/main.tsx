@@ -526,6 +526,7 @@ function App() {
       } else if (action === "restore-order") {
         order = restoreOriginalOrder(order);
       } else {
+        if (!current.view.insert) return;
         if (!target || target === key) return;
         if (!order.some((v) => spreadId(v) === target)) return;
         const [moving] = order.splice(index, 1);
@@ -1313,7 +1314,7 @@ function App() {
                     <select
                       aria-label="Move destination"
                       value={moveTarget}
-                      disabled={locked}
+                      disabled={locked || !view.insert}
                       onChange={(e) => setMoveTarget(e.target.value)}
                     >
                       <option value="">Choose destination</option>
@@ -1330,7 +1331,7 @@ function App() {
                     Place moved pages
                     <select
                       aria-label="Move position"
-                      disabled={locked}
+                      disabled={locked || !view.insert}
                       value={movePosition}
                       onChange={(e) =>
                         setMovePosition(e.target.value as "before" | "after")
@@ -1341,14 +1342,18 @@ function App() {
                     </select>
                   </label>
                   <button
-                    disabled={locked || !moveTarget}
+                    disabled={locked || !view.insert || !moveTarget}
                     onClick={() => organizePages("move", moveTarget)}
                   >
                     Move spread
                   </button>
                 </div>
 
-                <p>Page-turn arrows follow your saved order.</p>
+                <p>
+                  {view.insert
+                    ? "Page-turn arrows follow your saved order."
+                    : "Only custom spreads can be moved."}
+                </p>
                 <button
                   disabled={locked}
                   onClick={() => organizePages("restore-order")}

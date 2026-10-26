@@ -215,7 +215,7 @@ try {
   assert.equal(reordered.settings.order[index + 1].date, "2027-01-01");
   await button("Next spread").click();
   await saved();
-  assert.equal(await heading().textContent(), "January 2027");
+  assert.equal(await heading().textContent(), "January");
   await button("Previous spread").click();
   await saved();
   assert.equal(
@@ -229,13 +229,18 @@ try {
   assert.deepEqual(reloaded.settings.order, reordered.settings.order);
   await openDock(page, "Pages");
   await open("month:2027-01-01");
-  await page
-    .getByLabel("Move destination", { exact: true })
-    .selectOption("month:2027-12-01");
-  await page.getByLabel("Move position", { exact: true }).selectOption("after");
-  await button("Move spread").click();
-  await saved();
+  assert.equal(
+    await page.getByLabel("Move destination", { exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(
+    await page.getByLabel("Move position", { exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(await button("Move spread").isDisabled(), true);
+  await page.getByText("Only custom spreads can be moved.", { exact: true }).waitFor();
   const beforeReset = await snapshot();
+  assert.deepEqual(beforeReset.settings.order, reloaded.settings.order);
   await button("Restore original spread order").click();
   await saved();
   const reset = await snapshot();
@@ -290,7 +295,7 @@ try {
   );
   await button("Duplicate spread").click();
   await saved();
-  assert.equal(await heading().textContent(), "January 2027");
+  assert.equal(await heading().textContent(), "January");
   const calendarCopy = await snapshot();
   assert.equal(calendarCopy.settings.inserts.at(-1).source.mode, "month");
   // Restore a version 2 backup and retain all custom metadata and ink.
