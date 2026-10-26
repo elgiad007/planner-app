@@ -1838,7 +1838,17 @@ function App() {
             aria-modal="true"
             aria-labelledby="help-title"
           >
-            <h2 id="help-title">Your planner, at home on your iPad</h2>
+            <div className="help-header">
+              <h2 id="help-title">Your planner, at home on your iPad</h2>
+              <button
+                type="button"
+                className="help-close"
+                aria-label="Close help"
+                onClick={() => setHelp(false)}
+              >
+                Close <span aria-hidden="true">×</span>
+              </button>
+            </div>
             <p className="help-version">
               Version {APP_VERSION}
               <button
