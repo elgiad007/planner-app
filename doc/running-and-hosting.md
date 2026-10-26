@@ -60,6 +60,8 @@ Use **Export PDF → Current spread / Entire binder → Create PDF**, then **Dow
 
 ## Backups and updates
 
+Open Help and select **Check for updates** beside the version number to check for a newly deployed release. The result appears in Help; an available update offers **Back up and update**. Checking requires an internet connection and the production app (including a local production preview), rather than the development server. Checking does not reload the app or activate an update. Save the downloaded backup and confirm before installing.
+
 Download a JSON backup regularly; save it in Files outside the app, ideally somewhere recoverable if the iPad is lost. The app can initiate a download but cannot verify that the file was retained safely. Backups are readable and unencrypted. A user-selected cloud destination is separate from app-managed synchronization.
 
 Restore validates the file before touching storage, downloads a safety copy, then asks for a second confirmation. Restore replaces local content transactionally; it does not merge planners. Maximum import size is 100 MB and maximum total imported stroke points is five million in schemas 1 and 2. Phase 4 validates saved records and coalesces waiting writes. See the Phase 4 checklist for measured desktop fixture sizes and remaining iPad acceptance.

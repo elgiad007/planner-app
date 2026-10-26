@@ -5,6 +5,74 @@ import { readFile } from "node:fs/promises";
 
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 try {
+  const checks = await browser.newContext();
+  await checks.addInitScript(() => {
+    window.updateScenario = "current";
+    window.activations = 0;
+    const registration = {
+      waiting: null,
+      installing: null,
+      addEventListener() {},
+      async update() {
+        if (window.updateScenario === "error")
+          throw Error("Network request failed");
+        if (window.updateScenario === "available") {
+          const worker = new EventTarget();
+          worker.state = "installing";
+          registration.installing = worker;
+          setTimeout(() => {
+            registration.waiting = {
+              postMessage() {
+                window.activations++;
+              },
+            };
+            registration.installing = null;
+            worker.state = "installed";
+            worker.dispatchEvent(new Event("statechange"));
+          }, 300);
+        }
+      },
+    };
+    navigator.serviceWorker.register = async () => registration;
+    navigator.serviceWorker.getRegistration = async () => registration;
+  });
+  const helpPage = await checks.newPage();
+  await helpPage.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
+  await helpPage.getByRole("button", { name: "Help and installation" }).click();
+  const help = helpPage.getByRole("dialog");
+  const check = help.getByRole("button", { name: "Check for updates" });
+  await check.click();
+  await help
+    .getByRole("status")
+    .filter({ hasText: "You’re up to date" })
+    .waitFor();
+  await helpPage.evaluate(() => {
+    window.updateScenario = "error";
+  });
+  await check.click();
+  await help
+    .getByRole("status")
+    .filter({ hasText: "Network request failed" })
+    .waitFor();
+  await checks.setOffline(true);
+  await check.click();
+  await help
+    .getByRole("status")
+    .filter({ hasText: "You’re offline" })
+    .waitFor();
+  await checks.setOffline(false);
+  await helpPage.evaluate(() => {
+    window.updateScenario = "available";
+  });
+  await check.click();
+  await help.getByRole("button", { name: "Checking…" }).waitFor();
+  await help
+    .getByRole("status")
+    .filter({ hasText: "An update is available" })
+    .waitFor();
+  await help.getByRole("button", { name: "Back up and update" }).waitFor();
+  assert.equal(await helpPage.evaluate(() => window.activations), 0);
+  await checks.close();
   const context = await browser.newContext({ acceptDownloads: true });
   // Supply a waiting worker without depending on two deployed releases.
   await context.addInitScript(() => {

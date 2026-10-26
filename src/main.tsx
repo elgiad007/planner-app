@@ -97,6 +97,8 @@ function App() {
     [operation, setOperation] = useState(false),
     [busy, setBusy] = useState(false),
     [update, setUpdate] = useState<ServiceWorkerRegistration | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false),
+    [updateMessage, setUpdateMessage] = useState("");
   const [pdfScope, setPdfScope] = useState<"current" | "binder">("current"),
     [pdfProgress, setPdfProgress] = useState(""),
     [pdfFile, setPdfFile] = useState<{ url: string; name: string } | null>(
@@ -626,6 +628,62 @@ function App() {
     )
       return;
     navigate({ mode: "week", date: key });
+  }
+  async function checkForUpdates() {
+    setCheckingUpdate(true);
+    setUpdateMessage("Checking for updates…");
+    try {
+      if (!navigator.onLine)
+        throw Error("You’re offline. Connect to the internet and try again.");
+      if (!import.meta.env.PROD || !("serviceWorker" in navigator))
+        throw Error(
+          "Update checks are available in the installed or hosted app.",
+        );
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (!reg)
+        throw Error(
+          "The offline app isn’t ready yet. Reopen the app online and try again.",
+        );
+      if (!reg.waiting) {
+        await reg.update();
+        const worker = reg.installing;
+        if (worker) {
+          await new Promise<void>((resolve, reject) => {
+            const finish = () => {
+              if (worker.state !== "installed" && worker.state !== "redundant")
+                return;
+              clearTimeout(timeout);
+              worker.removeEventListener("statechange", finish);
+              if (worker.state === "installed") resolve();
+              else
+                reject(Error("The update could not be downloaded. Try again."));
+            };
+            const timeout = setTimeout(() => {
+              worker.removeEventListener("statechange", finish);
+              reject(Error("The update check timed out. Try again."));
+            }, 30000);
+            worker.addEventListener("statechange", finish);
+            finish();
+          });
+        }
+      }
+      if (reg.waiting) {
+        setUpdate(reg);
+        setUpdateMessage(
+          "An update is available. Save a backup before updating.",
+        );
+      } else {
+        setUpdateMessage("You’re up to date.");
+      }
+    } catch (e) {
+      setUpdateMessage(
+        e instanceof Error
+          ? e.message
+          : "Couldn’t check for updates. Try again.",
+      );
+    } finally {
+      setCheckingUpdate(false);
+    }
   }
   function installUpdate() {
     void exclusive(async () => {
@@ -1721,7 +1779,24 @@ function App() {
             aria-labelledby="help-title"
           >
             <h2 id="help-title">Your planner, at home on your iPad</h2>
-            <p>Version {APP_VERSION}</p>
+            <p className="help-version">
+              Version {APP_VERSION}
+              <button
+                className="update-link"
+                disabled={checkingUpdate}
+                onClick={() => void checkForUpdates()}
+              >
+                {checkingUpdate ? "Checking…" : "Check for updates"}
+              </button>
+            </p>
+            <p role="status">{updateMessage}</p>
+            {update && (
+              <p>
+                <button disabled={locked} onClick={installUpdate}>
+                  Back up and update
+                </button>
+              </p>
+            )}
             <h3>Keyboard shortcuts</h3>
             <p>
               Shortcuts pause while editing form fields and while writing or

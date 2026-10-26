@@ -596,6 +596,24 @@ main {
   place-items: center;
   padding: 24px;
 }
+.help-version {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.help .update-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.help .update-link:disabled {
+  cursor: wait;
+}
 .help {
   max-width: 580px;
   max-height: 85dvh;
