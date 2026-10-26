@@ -109,11 +109,14 @@ export function Template({
     const cols = side === 0 ? [0, 1, 2, 3] : [4, 5, 6, 7];
     return (
       <div className="template">
-        <header>
+        <header className="dated-header">
           <span className="eyebrow">MY PASTEL PLANNER</span>
-          <h1>
-            {MONTHS[month]} <em>{d.getUTCFullYear()}</em>
+          <h1 aria-label={`${MONTHS[month]} ${d.getUTCFullYear()}`}>
+            {MONTHS[month]}
           </h1>
+          <span className="header-year" aria-hidden="true">
+            {d.getUTCFullYear()}
+          </span>
         </header>
         <div className="calendar">
           {cols.map((col) => (
@@ -164,7 +167,7 @@ export function Template({
     blocks = side === 0 ? [0, 1, 2] : [3, 4, 5, 6];
   return (
     <div className="template">
-      <header>
+      <header className="dated-header">
         <span className="eyebrow">ONE WEEK AT A TIME</span>
         <h1>
           {parseDate(start).toLocaleDateString("en-US", {
@@ -179,12 +182,15 @@ export function Template({
             timeZone: "UTC",
           })}
         </h1>
-        <span className="week-year">
-          {parseDate(start).getUTCFullYear()}
+        <span className="header-year">
+          <span>{parseDate(start).getUTCFullYear()}</span>
           {parseDate(start).getUTCFullYear() !==
-          parseDate(addDays(start, 6)).getUTCFullYear()
-            ? ` / ${parseDate(addDays(start, 6)).getUTCFullYear()}`
-            : ""}
+          parseDate(addDays(start, 6)).getUTCFullYear() ? (
+            <span>
+              <span className="year-divider"> / </span>
+              {parseDate(addDays(start, 6)).getUTCFullYear()}
+            </span>
+          ) : null}
         </span>
       </header>
       <div className="weekly">

@@ -265,10 +265,28 @@ main {
   color: #947b9f;
   margin: 1.5cqw 0 0;
 }
-.template h1 em {
-  font-size: 3cqw;
-  font-style: normal;
-  color: #a3979e;
+.dated-header {
+  position: relative;
+  padding-right: 30cqw;
+}
+.header-year {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: Georgia, serif;
+  font-size: 12cqw;
+  line-height: 0.85;
+  color: #947b9f;
+  opacity: 0.25;
+  white-space: nowrap;
+}
+.header-year:has(.year-divider) {
+  display: flex;
+  flex-direction: column;
+  font-size: 6cqw;
+  line-height: 1;
+  text-align: right;
 }
 .template footer {
   font-family: Georgia, serif;
@@ -384,10 +402,6 @@ main {
     #b4aab547 calc(3.8cqw + 1px)
   );
   border-top: 1px solid #c9c0cb;
-}
-.week-year {
-  font-size: 2cqw;
-  color: #a3979e;
 }
 .spine {
   position: absolute;
