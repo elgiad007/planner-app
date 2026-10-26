@@ -16,6 +16,7 @@
     "test:pinch": "node scripts/pinch-check.mjs",
     "test:custom": "node scripts/custom-check.mjs",
     "test:reliability": "node scripts/reliability-check.mjs",
+    "test:pdf": "node scripts/pdf-check.mjs",
     "test:turn": "node scripts/turn-check.mjs",
     "format": "prettier --write src scripts tests package.json tsconfig.json pnpm-workspace.yaml",
     "test:dock": "node scripts/dock-check.mjs",

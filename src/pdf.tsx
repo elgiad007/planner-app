@@ -67,16 +67,16 @@ export async function createPdf(
         const paperBounds = paper?.getBoundingClientRect();
         const styles = nodes.map((node) => {
           const css = getComputedStyle(node);
+          // One bulk assignment avoids hundreds of CSSOM mutations per node.
+          // Snapshot every node before writing so inheritance/layout stays stable.
           return Array.from(
             css,
-            (key) => [key, css.getPropertyValue(key)] as const,
-          );
+            (key) => `${key}:${css.getPropertyValue(key)};`,
+          ).join("");
         });
-        nodes.forEach((node, index) =>
-          styles[index].forEach(([key, value]) =>
-            node.style.setProperty(key, value),
-          ),
-        );
+        nodes.forEach((node, index) => {
+          node.style.cssText = styles[index];
+        });
         // The isolated renderer must work offline even if its cloned iframe
         // can't load a stylesheet. Keep all styles inline, but use the SVG's
         // actual flexed size rather than its intrinsic 600x650 dimensions.
@@ -93,6 +93,10 @@ export async function createPdf(
           logging: false,
           scrollX: 0,
           scrollY: 0,
+          // All paper styles are frozen above. Skip unrelated body subtrees,
+          // especially the app's live ink canvases, when cloning the document.
+          ignoreElements: (element) =>
+            element.parentElement === document.body && element !== host,
         });
         try {
           signal.throwIfAborted();

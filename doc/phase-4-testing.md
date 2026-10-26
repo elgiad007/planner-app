@@ -29,6 +29,14 @@ Run `pnpm test` and `pnpm build`. Serve the production build with `pnpm preview 
 - Existing `test:browser`, `test:ink`, `test:touch`, `test:turn`, `test:custom`, `scripts/history-check.mjs` and `scripts/update-check.mjs` exercise drawing, failed-save retry, interruption recovery, touch exclusion, offline reload, ordering, history and backup-gated updates.
 - Export samples are under `test-results/phase4-*.pdf`. PDFs are rendered with Poppler for visual inspection of templates, guides, both page halves, ink pressure/color and highlighter. Desktop screenshots do not establish Safari/Pencil behavior.
 
+## PDF export performance (2026-10-26)
+
+The exporter freezes computed styles with one bulk assignment per element and excludes unrelated app subtrees (including live canvases) from html2canvas's document clone. Resolution, JPEG quality, and one-paper-canvas memory behavior are unchanged.
+
+On the same desktop preview, a 65-spread synthetic binder took 34,314 ms before and 26,345 ms after (about 23% less time). Both files were 11,124,825 bytes and all 130 embedded page JPEGs were byte-for-byte identical. These are single-run desktop measurements; real-iPad speed and memory still need checking.
+
+Run `pnpm test:pdf` against a production preview (`PLANNER_TEST_URL` can override the URL). It checks full-binder sheet count, offline export, cancellation, canvas cleanup, unchanged saved pages, and browser errors. Optional arguments preserve a named output and compare all page JPEGs with an earlier fixture export: `node scripts/pdf-check.mjs optimized test-results/pdf-baseline.pdf`. Outputs go to `test-results/pdf-<label>.pdf`.
+
 ## Real-iPad acceptance
 
 Retain a recent JSON backup in Files before installing the review build.
