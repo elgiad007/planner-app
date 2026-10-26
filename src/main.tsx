@@ -129,6 +129,8 @@ function App() {
   const [selectionReset, setSelectionReset] = useState(0);
   const dateInput = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState(100);
+  const [pinching, setPinching] = useState(false);
+  const pinchingRef = useRef(false);
   const book = useWritingGuard(
     !hand && !spacePan && tool !== "browse" && !operation && ready,
   );
@@ -272,7 +274,13 @@ function App() {
     });
   }
   function lock() {
-    return busyRef.current || opRef.current || turning.current || !ready;
+    return (
+      busyRef.current ||
+      pinchingRef.current ||
+      opRef.current ||
+      turning.current ||
+      !ready
+    );
   }
   function navigate(next: View) {
     if (lock() || !validView(next)) return;
@@ -770,7 +778,7 @@ function App() {
         <p>Opening your pages…</p>
       </main>
     );
-  const locked = busy || operation || !!turn;
+  const locked = busy || pinching || operation || !!turn;
   const year = parseDate(view.date).getUTCFullYear();
   const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
   const bookmarked = settings.bookmarks?.includes(spreadId(view));
@@ -1207,7 +1215,19 @@ function App() {
             ›
           </button>
         </div>
-        <SpreadViewport locked={locked} hand={hand || spacePan} zoom={zoom}>
+        <SpreadViewport
+          locked={locked}
+          hand={hand || spacePan}
+          zoom={zoom}
+          pinchDisabled={operation || !!turn || help}
+          onZoom={setZoom}
+          onPinch={(active) => {
+            pinchingRef.current = active;
+            setPinching(active);
+            gesture.current = null;
+            contacts.current.clear();
+          }}
+        >
           <div
             className={"book" + (turn ? " turning" : "")}
             ref={book}
@@ -1291,6 +1311,7 @@ function App() {
                   <TextLayer
                     blocks={pages[id]?.textBlocks ?? []}
                     active={
+                      !pinching &&
                       !hand &&
                       !spacePan &&
                       !help &&
@@ -1320,6 +1341,7 @@ function App() {
                     tool={tool === "text" ? "browse" : tool}
                     eraser={tool === "eraser"}
                     enabled={
+                      !pinching &&
                       !hand &&
                       !spacePan &&
                       !help &&
@@ -1645,9 +1667,10 @@ function App() {
             </p>
             <p>
               Open Zoom in the right toolbar and use + and − to zoom from 100%
-              to 250%. Fit spread shows both pages again. Scroll to reach
-              enlarged pages, or select Hand and drag to move around. Select a
-              writing tool to resume editing.
+              to 250%, or pinch with two fingers directly on the spread. Fit
+              spread shows both pages again. Scroll to reach enlarged pages, or
+              select Hand and drag to move around. Select a writing tool to
+              resume editing.
             </p>
             <p>
               In Safari, open Share → Add to Home Screen. Open the installed

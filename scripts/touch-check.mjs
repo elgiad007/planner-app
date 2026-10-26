@@ -50,7 +50,7 @@ try {
     let saved = await backup();
     assert.equal(strokes(saved).length, 1);
     assert.ok(strokes(saved)[0].points.length > 1);
-    // A second native touch must not end the first stroke or draw elsewhere.
+    // A second native touch converts provisional finger ink into pinch zoom.
     await touch("touchStart", [first]);
     const second = {
       x: Math.round(rect.x + rect.width * 0.7),
@@ -64,7 +64,7 @@ try {
     );
     await touch("touchMove", [{ ...first, x: x + 15 }, second]);
     await touch("touchEnd", []);
-    assert.equal(strokes(await backup()).length, 2);
+    assert.equal(strokes(await backup()).length, 1);
     if (
       await page
         .getByRole("button", { name: "Expand writing tools", exact: true })
@@ -74,9 +74,9 @@ try {
         .getByRole("button", { name: "Expand writing tools", exact: true })
         .tap();
     await page.getByRole("button", { name: "Undo", exact: true }).tap();
-    assert.equal(strokes(await backup()).length, 1);
+    assert.equal(strokes(await backup()).length, 0);
     await page.getByRole("button", { name: "Redo", exact: true }).tap();
-    assert.equal(strokes(await backup()).length, 2);
+    assert.equal(strokes(await backup()).length, 1);
     await page.getByRole("button", { name: "Eraser", exact: true }).tap();
     await draw();
     assert.equal(strokes(await backup()).length, 0);
@@ -101,7 +101,7 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
     console.log(
-      `Touch checks passed at ${width}px: opt-in, native drawing, multi-touch exclusion, undo/redo, erasing, persistence, Browse dates.`,
+      `Touch checks passed at ${width}px: opt-in, native drawing, pinch conversion, undo/redo, erasing, persistence, Browse dates.`,
     );
   }
 } finally {

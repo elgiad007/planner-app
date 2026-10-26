@@ -12,6 +12,7 @@
     "test:text": "node scripts/text-check.mjs",
     "test:ink": "node scripts/ink-check.mjs",
     "test:touch": "node scripts/touch-check.mjs",
+    "test:pinch": "node scripts/pinch-check.mjs",
     "test:custom": "node scripts/custom-check.mjs",
     "test:reliability": "node scripts/reliability-check.mjs",
     "test:turn": "node scripts/turn-check.mjs",

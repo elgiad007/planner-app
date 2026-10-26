@@ -33,6 +33,11 @@ export function TextLayer({
     block: TextBlock;
     resize: boolean;
   } | null>(null);
+  const touchPlacement = useRef<{
+    id: number;
+    clientX: number;
+    clientY: number;
+  } | null>(null);
   const latest = useRef({ blocks, onChange });
   latest.current = { blocks, onChange };
   const previousColor = useRef(colorRevision);
@@ -42,6 +47,7 @@ export function TextLayer({
     setDraft(null);
     setPreview(null);
     drag.current = null;
+    touchPlacement.current = null;
   }, [active, reset]);
   useEffect(() => {
     if (previousColor.current !== colorRevision && active && selected) {
@@ -90,6 +96,21 @@ export function TextLayer({
     onChange(blocks.filter((b) => b.id !== selected));
     select(null);
   }
+  function placeText(e: { clientX: number; clientY: number }) {
+    const p = point(e);
+    const block = {
+      id: crypto.randomUUID(),
+      text: "",
+      color,
+      x: Math.max(0, Math.min(WIDTH - 220, p.x)),
+      y: Math.max(0, Math.min(HEIGHT - 100, p.y)),
+      width: 220,
+      height: 100,
+      fontSize: 24,
+    };
+    select(block.id);
+    setDraft(block);
+  }
   return (
     <>
       <svg
@@ -107,21 +128,24 @@ export function TextLayer({
             return;
           e.preventDefault();
           e.stopPropagation();
-          const p = point(e);
-          const block = {
-            id: crypto.randomUUID(),
-            text: "",
-            color,
-            x: Math.max(0, Math.min(WIDTH - 220, p.x)),
-            y: Math.max(0, Math.min(HEIGHT - 100, p.y)),
-            width: 220,
-            height: 100,
-            fontSize: 24,
-          };
-          select(block.id);
-          setDraft(block);
+          if (e.pointerType === "touch") {
+            // Wait for a single-finger tap to finish so a second finger can
+            // begin pinching before a modal text editor opens.
+            touchPlacement.current = {
+              id: e.pointerId,
+              clientX: e.clientX,
+              clientY: e.clientY,
+            };
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } else placeText(e);
         }}
         onPointerMove={(e) => {
+          const tap = touchPlacement.current;
+          if (
+            tap?.id === e.pointerId &&
+            Math.hypot(e.clientX - tap.clientX, e.clientY - tap.clientY) > 10
+          )
+            touchPlacement.current = null;
           const start = drag.current;
           if (!start || start.id !== e.pointerId) return;
           const p = point(e),
@@ -143,6 +167,9 @@ export function TextLayer({
           );
         }}
         onPointerUp={(e) => {
+          const tap = touchPlacement.current;
+          touchPlacement.current = null;
+          if (tap?.id === e.pointerId && active && placing) placeText(tap);
           if (drag.current?.id !== e.pointerId) return;
           const before = drag.current.block;
           drag.current = null;
@@ -153,10 +180,12 @@ export function TextLayer({
             e.currentTarget.releasePointerCapture(e.pointerId);
         }}
         onPointerCancel={() => {
+          touchPlacement.current = null;
           drag.current = null;
           setPreview(null);
         }}
         onLostPointerCapture={() => {
+          touchPlacement.current = null;
           drag.current = null;
           setPreview(null);
         }}

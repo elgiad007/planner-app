@@ -133,7 +133,12 @@ try {
     0,
   );
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  assert.deepEqual((await downloadBackup(page)).pages, saved.pages);
+  const normalizedPages = (pages) =>
+    pages.map((p) => ({ ...p, textBlocks: p.textBlocks ?? [] }));
+  assert.deepEqual(
+    normalizedPages((await downloadBackup(page)).pages),
+    normalizedPages(saved.pages),
+  );
   await openDock(page, "Files");
   await page.getByRole("button", { name: "Create PDF", exact: true }).click();
   await page.getByRole("link", { name: "Download PDF", exact: true }).waitFor();

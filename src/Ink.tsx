@@ -241,6 +241,19 @@ export function Ink({
   }
   useLayoutEffect(() => {
     const c = canvas.current!;
+    const viewport = c.closest(".zoom-viewport");
+    const pinchStarted = () => {
+      const a = active.current;
+      if (a?.type !== "touch") return;
+      // A first finger may have begun a stroke or erasure. A second finger
+      // converts that provisional edit into a gesture without saving it.
+      active.current = null;
+      latest.current = a.original;
+      callbacks.current.onBusy(false);
+      render();
+      if (c.hasPointerCapture(a.id)) c.releasePointerCapture(a.id);
+    };
+    viewport?.addEventListener("planner-pinch-start", pinchStarted);
     const resize = () => {
       const r = c.getBoundingClientRect();
       const w = Math.max(1, Math.round(r.width * devicePixelRatio));
@@ -277,6 +290,7 @@ export function Ink({
     window.addEventListener("pagehide", interrupted);
     document.addEventListener("visibilitychange", visibility);
     return () => {
+      viewport?.removeEventListener("planner-pinch-start", pinchStarted);
       observer.disconnect();
       window.removeEventListener("pointerdown", freshContact, true);
       window.removeEventListener("pointermove", move);

@@ -1289,6 +1289,7 @@ main {
 /* Spread magnification changes page layout so ink canvases resize with the paper. */
 .planner-shell .zoom-viewport {
   display: block;
+  touch-action: none;
   /* Override book-wrap centering: an oversized stage must start inside the
      scrollable area. The stage itself centers paper when it fits. */
   place-items: start;
