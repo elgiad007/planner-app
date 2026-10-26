@@ -199,7 +199,8 @@ main {
   /* Curl geometry must not enlarge the document and introduce a scrollbar. */
   overflow: hidden;
   border-radius: inherit;
-  z-index: 4;
+  /* The animation contains its own rings between static and moving sheets. */
+  z-index: 6;
   pointer-events: none;
 }
 .page-turn > div {
@@ -208,6 +209,15 @@ main {
 }
 .turn-sheet {
   overflow: hidden;
+}
+.turning > .rings {
+  visibility: hidden;
+}
+.rings.turn-rings {
+  /* Match the book's ring positions, including the compact layout's inset. */
+  top: calc(-1 * var(--turn-inset));
+  bottom: calc(-1 * var(--turn-inset));
+  z-index: 4;
 }
 .turning > .page {
   pointer-events: none;

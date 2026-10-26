@@ -88,6 +88,13 @@ export function PageTurn({
       if (event.data === "read") finish();
     });
     flip.loadFromHTML(sheets);
+    // Keep rings above the static (1) and revealed (3) pages, but below the
+    // moving sheet (5) and its shadows (10), inside the engine's stacking context.
+    const rings = book.querySelector<HTMLElement>(":scope > .rings")!;
+    const turnRings = rings.cloneNode(true) as HTMLElement;
+    turnRings.classList.add("turn-rings");
+    turnRings.style.setProperty("--turn-inset", getComputedStyle(root).top);
+    root.querySelector(".stf__block")!.append(turnRings);
     const frame = requestAnimationFrame(() =>
       direction > 0 ? flip.flipNext("bottom") : flip.flipPrev("bottom"),
     );
