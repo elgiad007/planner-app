@@ -27,6 +27,21 @@ try {
     await page.mouse.move(rect.x + 150, rect.y + 170, { steps: 8 });
     await page.mouse.up();
   };
+  for (const modifier of ["Control", "Meta"]) {
+    const downloadEvent = page.waitForEvent("download");
+    await press(`${modifier}+s`);
+    const download = await downloadEvent;
+    assert.ok(download.suggestedFilename().endsWith(".json"));
+    await page
+      .getByRole("status")
+      .filter({ hasText: "Planner file downloaded" })
+      .waitFor();
+    const chooserEvent = page.waitForEvent("filechooser");
+    await press(`${modifier}+o`);
+    const chooser = await chooserEvent;
+    assert.equal(chooser.isMultiple(), false);
+  }
+  console.log("Save and Open shortcuts passed");
   await write();
   await page
     .getByRole("button", { name: "February 2027", exact: true })
@@ -119,7 +134,7 @@ try {
     await page.getByRole("heading", { name: "Keyboard shortcuts" }).isVisible(),
     true,
   );
-  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 19);
+  assert.equal(await page.locator(".shortcut-table tbody tr").count(), 21);
   await page.keyboard.press("Tab");
   assert.equal(
     await helpClose.evaluate((el) => el === document.activeElement),

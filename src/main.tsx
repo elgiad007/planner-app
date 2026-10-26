@@ -792,6 +792,19 @@ function App() {
           return;
         }
       }
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.altKey &&
+        !e.shiftKey &&
+        ["s", "o"].includes(e.key.toLowerCase())
+      ) {
+        e.preventDefault();
+        if (!e.repeat && !lock()) {
+          if (e.key.toLowerCase() === "s") backup();
+          else input.current?.click();
+        }
+        return;
+      }
       // Preserve text editing, native form controls, and browser/OS shortcuts.
       if (
         target?.closest(
@@ -1271,10 +1284,20 @@ function App() {
             </p>
           )}
           <div className="file-actions">
-            <button disabled={locked} onClick={backup}>
+            <button
+              disabled={locked}
+              onClick={backup}
+              title="Save planner (Ctrl+S / Cmd+S)"
+              aria-keyshortcuts="Control+s Meta+s"
+            >
               Save planner…
             </button>
-            <button disabled={locked} onClick={() => input.current?.click()}>
+            <button
+              disabled={locked}
+              onClick={() => input.current?.click()}
+              title="Open planner (Ctrl+O / Cmd+O)"
+              aria-keyshortcuts="Control+o Meta+o"
+            >
               Open planner…
             </button>
             <input

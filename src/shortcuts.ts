@@ -1,4 +1,6 @@
 export const SHORTCUTS = [
+  ["Ctrl+S / Cmd+S", "Save planner file"],
+  ["Ctrl+O / Cmd+O", "Open planner file"],
   ["← / →", "Previous / next spread"],
   ["Shift+← / Shift+→", "Previous / next spread with content"],
   ["T", "Text tool"],
