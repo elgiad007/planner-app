@@ -1444,6 +1444,67 @@ main {
   pointer-events: none;
   touch-action: none;
 }
+.stamp-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+  touch-action: none;
+}
+.stamp-layer.stamp-placing {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+.stamp-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.stamp-grid > div {
+  min-width: 0;
+}
+.stamp-grid button {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.stamp-grid .stamp-preview {
+  width: 64px;
+  height: 64px;
+  max-width: 100%;
+  margin: auto;
+}
+.stamp-drawing {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #6c628d;
+  background: #fff;
+  touch-action: none;
+}
+.stamp-editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.stamp-editor-controls label {
+  flex: 1;
+  min-width: 80px;
+}
+.stamp-hint {
+  font-size: 12px;
+}
+.stamp-actions {
+  z-index: 6;
+}
 .text-layer.text-placing {
   pointer-events: auto;
   cursor: text;

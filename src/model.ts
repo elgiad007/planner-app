@@ -1,3 +1,4 @@
+import { validateStamps } from "./validateStamps";
 export type Point = { x: number; y: number; pressure: number };
 export type Stroke = {
   id: string;
@@ -16,7 +17,24 @@ export type TextBlock = {
   height: number;
   fontSize: number;
 };
-export type Page = { id: string; strokes: Stroke[]; textBlocks?: TextBlock[] };
+export type Stamp = {
+  id: string;
+  name: string;
+  strokes: Stroke[];
+  hidden?: boolean;
+};
+export type StampPlacement = {
+  id: string;
+  stampId: string;
+  x: number;
+  y: number;
+};
+export type Page = {
+  id: string;
+  strokes: Stroke[];
+  textBlocks?: TextBlock[];
+  stamps?: StampPlacement[];
+};
 export type Insert =
   "blank" | "lined" | "dot-grid" | "checklist" | "sketchbook";
 export type CustomSpread = {
@@ -28,7 +46,14 @@ export type CustomSpread = {
 export type View = { mode: "month" | "week"; date: string; insert?: string };
 export const DEFAULT_PREFERENCES = {
   tool: "pen" as
-    "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select" | "text",
+    | "pen"
+    | "eraser"
+    | "browse"
+    | "highlighter"
+    | "pencil"
+    | "select"
+    | "text"
+    | "stamp",
   inkColor: "#4b4659",
   highlighterColor: "#ffff00",
   inkWidth: 2.5,
@@ -37,6 +62,7 @@ export const DEFAULT_PREFERENCES = {
 };
 export type ToolPreferences = typeof DEFAULT_PREFERENCES;
 export type Settings = {
+  stamps?: Stamp[];
   plannerName?: string;
   preferences?: Partial<ToolPreferences>;
   showHolidays?: boolean;
@@ -230,6 +256,7 @@ export function validateBackup(raw: unknown): Backup {
         "pencil",
         "select",
         "text",
+        "stamp",
       ].includes(preferences.tool)
     )
       throw Error("Invalid selected tool.");
@@ -260,6 +287,9 @@ export function validateBackup(raw: unknown): Backup {
   if (b.pages.length > 20000)
     throw Error("Planner file contains too many pages.");
   const inserts = b.settings.inserts ?? [];
+  const library = b.settings.stamps ?? [];
+  validateStamps(library);
+  const stampIds = new Set(library.map((s) => s.id));
   const order = b.settings.order ?? [];
   const bookmarks = b.settings.bookmarks ?? [];
   const bookmarkNames = b.settings.bookmarkNames;
@@ -387,6 +417,28 @@ export function validateBackup(raw: unknown): Backup {
         seen.add(t.id);
       }
     }
+    if (p.stamps !== undefined) {
+      if (!Array.isArray(p.stamps) || p.stamps.length > 1000)
+        throw Error("Invalid stamp placements.");
+      const seen = new Set<string>();
+      for (const item of p.stamps) {
+        if (
+          !item ||
+          typeof item.id !== "string" ||
+          !item.id ||
+          item.id.length > 100 ||
+          seen.has(item.id) ||
+          !stampIds.has(item.stampId) ||
+          ![item.x, item.y].every(Number.isFinite) ||
+          item.x < 0 ||
+          item.y < 0 ||
+          item.x > WIDTH - 200 ||
+          item.y > HEIGHT - 200
+        )
+          throw Error("Invalid stamp placement.");
+        seen.add(item.id);
+      }
+    }
     ids.add(p.id);
     const strokeIds = new Set<string>();
     for (const s of p.strokes) {
@@ -436,6 +488,16 @@ export function validateBackup(raw: unknown): Backup {
     exportedAt: b.exportedAt,
     pages: b.pages.map((p) => ({
       id: p.id,
+      ...(p.stamps
+        ? {
+            stamps: p.stamps.map(({ id, stampId, x, y }) => ({
+              id,
+              stampId,
+              x,
+              y,
+            })),
+          }
+        : {}),
       ...(p.textBlocks
         ? {
             textBlocks: p.textBlocks.map((t) => ({
@@ -459,6 +521,25 @@ export function validateBackup(raw: unknown): Backup {
       })),
     })),
     settings: {
+      ...(b.settings.stamps !== undefined
+        ? {
+            stamps: library.map((stamp) => ({
+              id: stamp.id,
+              name: stamp.name.trim(),
+              ...(stamp.hidden !== undefined ? { hidden: stamp.hidden } : {}),
+              strokes: stamp.strokes.map((s) => ({
+                id: s.id,
+                color: s.color,
+                width: s.width,
+                points: s.points.map(({ x, y, pressure }) => ({
+                  x,
+                  y,
+                  pressure,
+                })),
+              })),
+            })),
+          }
+        : {}),
       ...(b.settings.plannerName !== undefined
         ? { plannerName: b.settings.plannerName.trim() }
         : {}),
@@ -557,6 +638,7 @@ export function spreadHasContent(v: View, pages: Record<string, Page>) {
     const page = pages[id];
     return (
       page?.strokes.some((s) => s.points.length > 0) ||
+      (page?.stamps?.length ?? 0) > 0 ||
       page?.textBlocks?.some((t) => t.text.trim().length > 0) ||
       false
     );
@@ -674,6 +756,10 @@ export function duplicateSpread(
   const next = { ...view, insert: id };
   const copies = pageIds(next).map((id, side) => ({
     id,
+    stamps: (pages[pageIds(view)[side]]?.stamps ?? []).map((s) => ({
+      ...s,
+      id: crypto.randomUUID(),
+    })),
     textBlocks: (pages[pageIds(view)[side]]?.textBlocks ?? []).map((t) => ({
       ...t,
       id: crypto.randomUUID(),

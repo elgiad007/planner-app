@@ -10,6 +10,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:browser": "node scripts/browser-check.mjs",
     "test:text": "node scripts/text-check.mjs",
+    "test:stamps": "node scripts/stamp-check.mjs",
     "test:ink": "node scripts/ink-check.mjs",
     "test:touch": "node scripts/touch-check.mjs",
     "test:pinch": "node scripts/pinch-check.mjs",

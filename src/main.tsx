@@ -7,6 +7,9 @@ import { SpreadViewport } from "./SpreadViewport";
 import { DockMenu } from "./DockMenu";
 import { ToolButton } from "./ToolButton";
 import { SHORTCUTS, TOOL_KEYS } from "./shortcuts";
+import { StampTool } from "./StampTool";
+import { StampLayer } from "./StampLayer";
+import { type Stamp, type StampPlacement } from "./model";
 import { TextLayer } from "./TextLayer";
 import { Ink } from "./Ink";
 import { useWritingGuard } from "./useWritingGuard";
@@ -140,6 +143,7 @@ function App() {
     [pdfFile],
   );
   useEffect(() => () => pdfAbort.current?.abort(), []);
+  const [selectedStamp, setSelectedStamp] = useState<string | null>(null);
   const [colorRevision, setColorRevision] = useState(0);
   const color = tool === "highlighter" ? highlighterColor : inkColor;
   const width = tool === "highlighter" ? highlighterWidth : inkWidth;
@@ -360,6 +364,13 @@ function App() {
     setSettings(next);
     persist("settings", () => saveSettings(next));
   }
+  function changeStampLibrary(stamps: Stamp[]) {
+    if (lock()) return;
+    const next = { ...settingsRef.current, stamps };
+    settingsRef.current = next;
+    setSettings(next);
+    persist("settings", () => saveSettings(next));
+  }
   function commitView(next: View) {
     const s = { ...settingsRef.current, view: next };
     if (s.order?.length) s.order = plannerOrder(s);
@@ -386,6 +397,7 @@ function App() {
     strokes: Stroke[],
     recordHistory = true,
     textBlocks = pagesRef.current[id]?.textBlocks,
+    stamps = pagesRef.current[id]?.stamps,
   ) {
     const before = pagesRef.current[id] ?? { id, strokes: [] };
     if (recordHistory) {
@@ -394,7 +406,12 @@ function App() {
       if (h.past.length > 40) h.past.shift();
       h.future = [];
     }
-    const p = { id, strokes, ...(textBlocks ? { textBlocks } : {}) };
+    const p = {
+      id,
+      strokes,
+      ...(textBlocks ? { textBlocks } : {}),
+      ...(stamps ? { stamps } : {}),
+    };
     const next = { ...pagesRef.current, [id]: p };
     pagesRef.current = next;
     setPages(next);
@@ -411,8 +428,15 @@ function App() {
         id: next.id,
         strokes: pagesRef.current[next.id]?.strokes ?? [],
         textBlocks: pagesRef.current[next.id]?.textBlocks,
+        stamps: pagesRef.current[next.id]?.stamps,
       });
-      changePage(next.id, next.strokes, false, next.textBlocks ?? []);
+      changePage(
+        next.id,
+        next.strokes,
+        false,
+        next.textBlocks ?? [],
+        next.stamps ?? [],
+      );
     }
   }
   async function exclusive(work: () => Promise<void>) {
@@ -1650,7 +1674,9 @@ function App() {
                 lock() ||
                 performance.now() < penUntil.current ||
                 (fingerWriting && tool !== "browse") ||
-                !!(e.target as Element).closest(".text-layer, .text-actions") ||
+                !!(e.target as Element).closest(
+                  ".text-layer, .text-actions, .stamp-layer",
+                ) ||
                 !(e.target as Element).closest(".page")
               ) {
                 gesture.current = null;
@@ -1715,6 +1741,37 @@ function App() {
                     side={side}
                     onWeek={(date) => navigate({ mode: "week", date })}
                   />
+                  <StampLayer
+                    library={settings.stamps ?? []}
+                    placements={pages[id]?.stamps ?? []}
+                    active={
+                      !pinching &&
+                      !hand &&
+                      !spacePan &&
+                      !help &&
+                      !operation &&
+                      !turn &&
+                      (tool === "stamp" || tool === "select")
+                    }
+                    placing={tool === "stamp"}
+                    chosen={
+                      settings.stamps?.find(
+                        (s) => s.id === selectedStamp && !s.hidden,
+                      )?.id ??
+                      settings.stamps?.find((s) => !s.hidden)?.id ??
+                      null
+                    }
+                    reset={selectionReset}
+                    onChange={(stamps: StampPlacement[]) =>
+                      changePage(
+                        id,
+                        pagesRef.current[id]?.strokes ?? [],
+                        true,
+                        pagesRef.current[id]?.textBlocks,
+                        stamps,
+                      )
+                    }
+                  />
                   <TextLayer
                     blocks={pages[id]?.textBlocks ?? []}
                     active={
@@ -1746,7 +1803,7 @@ function App() {
                     strokes={pages[id]?.strokes ?? []}
                     color={color}
                     width={width}
-                    tool={tool === "text" ? "browse" : tool}
+                    tool={tool === "text" || tool === "stamp" ? "browse" : tool}
                     eraser={tool === "eraser"}
                     enabled={
                       !pinching &&
@@ -1755,6 +1812,7 @@ function App() {
                       !help &&
                       tool !== "browse" &&
                       tool !== "text" &&
+                      tool !== "stamp" &&
                       !operation &&
                       !turn
                     }
@@ -1787,6 +1845,14 @@ function App() {
                           )}
                           side={side}
                           onWeek={() => {}}
+                        />
+                        <StampLayer
+                          library={settings.stamps ?? []}
+                          placements={pages[id]?.stamps ?? []}
+                          active={false}
+                          placing={false}
+                          chosen={null}
+                          onChange={() => {}}
                         />
                         <TextLayer
                           blocks={pages[id]?.textBlocks ?? []}
@@ -1921,6 +1987,17 @@ function App() {
                 setHand(false);
                 setTool("browse");
               }}
+            />
+            <StampTool
+              library={settings.stamps ?? []}
+              selected={tool === "stamp" ? selectedStamp : null}
+              disabled={locked}
+              onChoose={(id) => {
+                setSelectedStamp(id);
+                setHand(false);
+                setTool("stamp");
+              }}
+              onLibrary={changeStampLibrary}
             />
             <span className="divider" />
             <div className="dock-palette" role="group" aria-label="Colors">
@@ -2168,11 +2245,15 @@ function App() {
               Select / move: draw a box around ink, then drag a selected stroke;
               switch tools to clear selection. Use Text to place a text block,
               then select it to edit, move, resize, or delete it. The palette
-              changes selected text color. Undo reverses ink movement.
-              Highlighter is translucent; Pencil varies with pressure. Export
-              PDF creates a visual copy of the current spread or entire binder.
-              Create it, then tap Download PDF and save in Files. PDFs cannot be
-              opened as editable planners.
+              changes selected text color. Undo reverses ink movement. Use
+              Stamps to draw a reusable stamp (up to 200 × 200), choose its
+              thumbnail, and tap a page to place it repeatedly. Select / move
+              lets you drag or delete a placed stamp. Removing a stamp from the
+              picker preserves existing page placements. Highlighter is
+              translucent; Pencil varies with pressure. Export PDF creates a
+              visual copy of the current spread or entire binder. Create it,
+              then tap Download PDF and save in Files. PDFs cannot be opened as
+              editable planners.
             </p>
             <button
               onClick={() => {

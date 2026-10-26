@@ -6,12 +6,14 @@ export function DockMenu({
   icon,
   side = "right",
   disabled,
+  selected = false,
   children,
 }: {
   label: string;
   icon: string;
   side?: "left" | "right";
   disabled?: boolean;
+  selected?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
@@ -20,7 +22,7 @@ export function DockMenu({
   return (
     <>
       <button
-        className="dock-launcher"
+        className={`dock-launcher${selected ? " selected" : ""}`}
         disabled={disabled}
         popoverTarget={id}
         aria-expanded={open}

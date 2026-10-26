@@ -1,5 +1,7 @@
 # Data storage and backups
 
+Custom stamps are drawing-only vector definitions in `settings.stamps`: ID, name, pen strokes within a 200 × 200 logical-unit area, and optional `hidden` flag. Each page's optional `stamps` array stores placement ID, stamp ID and position; repeated placements share one definition. Removing a stamp from the picker hides its definition so existing placements and undo history remain valid. Stamp placements participate in page undo/redo, duplication, content navigation, JSON save/restore and PDF export. Existing files without stamps remain compatible with schema 2. Validation limits libraries to 500 definitions and 500,000 total drawing points, each definition to 1,000 strokes, and each page to 1,000 placements; it rejects missing references and out-of-bounds drawings or placements before restore.
+
 Updated: 2026-10-25. Status: Phase 4 hardens validation, recovery and save queuing while retaining the approved storage format. iPad acceptance testing pending.
 
 ## Agreed combination
