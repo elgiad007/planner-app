@@ -21,6 +21,8 @@ import {
 } from "./storage";
 import {
   INSERTS,
+  DEFAULT_PREFERENCES,
+  type ToolPreferences,
   plannerOrder,
   restoreOriginalOrder,
   spreadId,
@@ -61,14 +63,28 @@ function App() {
     [fatal, setFatal] = useState(""),
     [status, setStatus] = useState("Opening planner…"),
     [error, setError] = useState("");
-  const [inkColor, setInkColor] = useState("#4b4659"),
-    [highlighterColor, setHighlighterColor] = useState("#ffff00"),
-    [inkWidth, setInkWidth] = useState(2.5),
-    [highlighterWidth, setHighlighterWidth] = useState(24),
-    [fingerWriting, setFingerWriting] = useState(false),
-    [tool, setTool] = useState<
-      "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select" | "text"
-    >("pen"),
+  const {
+    inkColor,
+    highlighterColor,
+    inkWidth,
+    highlighterWidth,
+    tool,
+    textFontSize,
+  } = {
+    ...DEFAULT_PREFERENCES,
+    ...settings.preferences,
+  };
+  const setInkColor = (value: string) => updatePreference("inkColor", value);
+  const setHighlighterColor = (value: string) =>
+    updatePreference("highlighterColor", value);
+  const setInkWidth = (value: number | ((previous: number) => number)) =>
+    updatePreference("inkWidth", value);
+  const setHighlighterWidth = (
+    value: number | ((previous: number) => number),
+  ) => updatePreference("highlighterWidth", value);
+  const setTool = (value: ToolPreferences["tool"]) =>
+    updatePreference("tool", value);
+  const [fingerWriting, setFingerWriting] = useState(false),
     [insertType, setInsertType] = useState<Insert>("lined"),
     [insertTitle, setInsertTitle] = useState(""),
     [position, setPosition] = useState<"before" | "after">("after"),
@@ -285,6 +301,24 @@ function App() {
   function navigate(next: View) {
     if (lock() || !validView(next)) return;
     commitView(next);
+  }
+  function updatePreference<K extends keyof ToolPreferences>(
+    key: K,
+    value:
+      | ToolPreferences[K]
+      | ((previous: ToolPreferences[K]) => ToolPreferences[K]),
+  ) {
+    if (lock()) return;
+    const previous =
+      settingsRef.current.preferences?.[key] ?? DEFAULT_PREFERENCES[key];
+    const nextValue = typeof value === "function" ? value(previous) : value;
+    const next = {
+      ...settingsRef.current,
+      preferences: { ...settingsRef.current.preferences, [key]: nextValue },
+    };
+    settingsRef.current = next;
+    setSettings(next);
+    persist("settings", () => saveSettings(next));
   }
   function commitView(next: View) {
     const s = { ...settingsRef.current, view: next };
@@ -1321,6 +1355,7 @@ function App() {
                     }
                     colorRevision={colorRevision}
                     placing={tool === "text"}
+                    defaultFontSize={textFontSize}
                     color={color}
                     reset={selectionReset}
                     onChange={(textBlocks) =>
@@ -1560,6 +1595,22 @@ function App() {
                   </small>
                 </span>
               </div>
+              <label>
+                Default text font size
+                <input
+                  aria-label="Default text font size"
+                  type="number"
+                  min={8}
+                  max={96}
+                  value={textFontSize}
+                  disabled={locked}
+                  onChange={(e) => {
+                    const size = Number(e.target.value);
+                    if (Number.isFinite(size) && size >= 8 && size <= 96)
+                      updatePreference("textFontSize", size);
+                  }}
+                />
+              </label>
               <label className="thickness">
                 Size <output>{width}</output>{" "}
                 <input

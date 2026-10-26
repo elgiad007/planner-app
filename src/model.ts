@@ -26,7 +26,18 @@ export type CustomSpread = {
   source?: View;
 };
 export type View = { mode: "month" | "week"; date: string; insert?: string };
+export const DEFAULT_PREFERENCES = {
+  tool: "pen" as
+    "pen" | "eraser" | "browse" | "highlighter" | "pencil" | "select" | "text",
+  inkColor: "#4b4659",
+  highlighterColor: "#ffff00",
+  inkWidth: 2.5,
+  highlighterWidth: 24,
+  textFontSize: 24,
+};
+export type ToolPreferences = typeof DEFAULT_PREFERENCES;
 export type Settings = {
+  preferences?: Partial<ToolPreferences>;
   showHolidays?: boolean;
   view: View;
   lastBackup?: string;
@@ -148,6 +159,51 @@ export function validateBackup(raw: unknown): Backup {
     typeof b.settings.showHolidays !== "boolean"
   )
     throw Error("Invalid holiday visibility setting.");
+  const preferences = b.settings.preferences;
+  if (preferences !== undefined) {
+    if (
+      !preferences ||
+      typeof preferences !== "object" ||
+      Array.isArray(preferences)
+    )
+      throw Error("Invalid tool preferences.");
+    if (
+      preferences.tool !== undefined &&
+      ![
+        "pen",
+        "eraser",
+        "browse",
+        "highlighter",
+        "pencil",
+        "select",
+        "text",
+      ].includes(preferences.tool)
+    )
+      throw Error("Invalid selected tool.");
+    for (const key of ["inkColor", "highlighterColor"] as const) {
+      const value = preferences[key];
+      if (
+        value !== undefined &&
+        (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value))
+      )
+        throw Error("Invalid tool color.");
+    }
+    for (const [key, min, max] of [
+      ["inkWidth", 1, 6],
+      ["highlighterWidth", 12, 48],
+      ["textFontSize", 8, 96],
+    ] as const) {
+      const value = preferences[key];
+      if (
+        value !== undefined &&
+        (typeof value !== "number" ||
+          !Number.isFinite(value) ||
+          value < min ||
+          value > max)
+      )
+        throw Error("Invalid tool size.");
+    }
+  }
   if (b.pages.length > 20000) throw Error("Backup contains too many pages.");
   const inserts = b.settings.inserts ?? [];
   const order = b.settings.order ?? [];
@@ -325,6 +381,17 @@ export function validateBackup(raw: unknown): Backup {
     })),
     settings: {
       view: cleanView(b.settings.view),
+      ...(preferences !== undefined
+        ? {
+            preferences: Object.fromEntries(
+              Object.keys(DEFAULT_PREFERENCES)
+                .filter((key) =>
+                  Object.prototype.hasOwnProperty.call(preferences, key),
+                )
+                .map((key) => [key, preferences[key as keyof ToolPreferences]]),
+            ),
+          }
+        : {}),
       ...(b.settings.showHolidays !== undefined
         ? { showHolidays: b.settings.showHolidays }
         : {}),

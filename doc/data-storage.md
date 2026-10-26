@@ -65,3 +65,5 @@ If remote recovery becomes a requirement, retain local-first storage and design 
 - [WebKit storage policy](https://webkit.org/blog/14403/updates-to-storage-policy/)
 
 Text blocks are optional `page.textBlocks` objects alongside strokes in the additive schema 2 record format. Each stores an independent ID, contents, color, logical position, box dimensions, and font size. Older records without text remain readable. Validation rejects invalid text before import or local loading. Duplication assigns new IDs; undo/redo restores the complete page, including both strokes and text. PDF output uses the same line wrapping and clipping as the on-screen text layer.
+
+Tool preferences are additive settings fields included in JSON backups: selected tool, shared pen/pencil/text color, pen/pencil width, separate highlighter color and width, and default text font size (8-96). Tool settings contains the default font-size control; it applies to new text blocks only. Missing preferences use the existing defaults. Invalid preferences are rejected during local load and backup restore. Box dimensions and finger-writing behavior are unchanged.

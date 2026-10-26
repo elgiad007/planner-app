@@ -10,6 +10,7 @@ export function TextLayer({
   color,
   reset,
   colorRevision = 0,
+  defaultFontSize = 24,
   onChange,
 }: {
   blocks: TextBlock[];
@@ -18,6 +19,7 @@ export function TextLayer({
   color: string;
   reset?: number;
   colorRevision?: number;
+  defaultFontSize?: number;
   onChange: (blocks: TextBlock[]) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -106,7 +108,7 @@ export function TextLayer({
       y: Math.max(0, Math.min(HEIGHT - 100, p.y)),
       width: 220,
       height: 100,
-      fontSize: 24,
+      fontSize: defaultFontSize,
     };
     select(block.id);
     setDraft(block);
