@@ -6,7 +6,7 @@ import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { Template } from "./Template";
 import { drawStrokes } from "./renderInk";
-import { exportViews } from "./exportModel";
+import { exportBookmarks, exportViews } from "./exportModel";
 import { WIDTH, HEIGHT, pageIds, type Backup } from "./model";
 
 // Two logical pages per PDF sheet; only one paper canvas exists at a time.
@@ -146,6 +146,11 @@ export async function createPdf(
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
     signal.throwIfAborted();
+    for (const bookmark of exportBookmarks(data, views)) {
+      pdf.outline.add(null, bookmark.title, {
+        pageNumber: bookmark.pageNumber,
+      });
+    }
     return pdf.output("blob");
   } finally {
     root.unmount();

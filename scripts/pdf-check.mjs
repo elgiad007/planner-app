@@ -26,7 +26,18 @@ try {
     layoutVersion: 1,
     appVersion: "0.4.5",
     exportedAt: new Date().toISOString(),
-    settings: { view: { mode: "month", date: "2027-01-01" } },
+    settings: {
+      view: { mode: "month", date: "2027-01-01" },
+      order: [
+        { mode: "month", date: "2027-01-01" },
+        { mode: "month", date: "2027-12-01" },
+      ],
+      bookmarks: ["month:2027-12-01", "month:2027-01-01"],
+      bookmarkNames: {
+        "month:2027-01-01": "École & Plans (2027)",
+        "month:2027-12-01": "Łódź",
+      },
+    },
     pages: [
       {
         id: "month:2027-01-01:left",
@@ -94,6 +105,29 @@ try {
   const downloading = page.waitForEvent("download");
   await link.click();
   const bytes = await readFile(await (await downloading).path());
+  function checkBookmarks(bytes, expected) {
+    const text = bytes.toString("latin1");
+    const pageObjects = [
+      ...text.matchAll(/(\d+) 0 obj\s*<<\s*\/Type \/Page\b/g),
+    ].map((match) => Number(match[1]));
+    const bookmarks = [
+      ...text.matchAll(
+        /\/Title \(((?:\\[\s\S]|[^\\)])*)\)[\s\S]*?\/Dest \[(\d+) 0 R/g,
+      ),
+    ].map((match) => {
+      const raw = Buffer.from(match[1].replace(/\\([\\()])/g, "$1"), "latin1");
+      const title =
+        raw[0] === 254 && raw[1] === 255
+          ? raw.subarray(2).swap16().toString("utf16le")
+          : raw.toString("latin1");
+      return { title, pageNumber: pageObjects.indexOf(Number(match[2])) + 1 };
+    });
+    assert.deepEqual(bookmarks, expected);
+  }
+  checkBookmarks(bytes, [
+    { title: "École & Plans (2027)", pageNumber: 1 },
+    { title: "Łódź", pageNumber: 2 },
+  ]);
   assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
   assert.equal(
     (bytes.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length,
@@ -101,6 +135,17 @@ try {
   );
   await writeFile(`test-results/pdf-${label}.pdf`, bytes);
   assert.deepEqual(await savedPages(), originalPages);
+  await openDock(page, "Files");
+  await page
+    .getByRole("combobox", { name: "PDF pages" })
+    .selectOption("current");
+  await page.getByRole("button", { name: "Create PDF", exact: true }).click();
+  await link.waitFor({ timeout: 60000 });
+  const currentDownload = page.waitForEvent("download");
+  await link.click();
+  checkBookmarks(await readFile(await (await currentDownload).path()), [
+    { title: "École & Plans (2027)", pageNumber: 1 },
+  ]);
   // Optional baseline path: compare embedded JPEGs rather than PDF timestamps/IDs.
   if (process.argv[3]) {
     const images = (buffer) =>

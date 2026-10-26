@@ -13,6 +13,34 @@ import {
   type Backup,
 } from "../src/model.ts";
 import { replacePlanner, loadPlanner } from "../src/storage.ts";
+import { exportBookmarks, exportViews } from "../src/exportModel.ts";
+
+test("PDF bookmarks follow exported order, names and one-based destinations", () => {
+  const b = backup();
+  const [first, second] = b.settings.order!;
+  b.settings.order = [second, first];
+  b.settings.bookmarkNames = {
+    [spreadId(first)]: "École & Plans (2027)",
+    [spreadId(second)]: "Łódź",
+  };
+  assert.deepEqual(exportBookmarks(b, exportViews(b, "binder")), [
+    { title: "Łódź", pageNumber: 1 },
+    { title: "École & Plans (2027)", pageNumber: 2 },
+  ]);
+  b.settings.view = first;
+  assert.deepEqual(exportBookmarks(b, exportViews(b, "current")), [
+    { title: "École & Plans (2027)", pageNumber: 1 },
+  ]);
+  b.settings.bookmarks = [spreadId(second)];
+  assert.deepEqual(exportBookmarks(b, exportViews(b, "current")), []);
+  b.settings.bookmarkNames = undefined;
+  assert.equal(
+    exportBookmarks(b, exportViews(b, "binder"))[0].title,
+    resolvedBookmarkNames(b.settings)[spreadId(second)],
+  );
+  b.settings.bookmarks = undefined;
+  assert.deepEqual(exportBookmarks(b, exportViews(b, "binder")), []);
+});
 
 function backup(): Backup {
   const order = plannerOrder({ view: initialView });

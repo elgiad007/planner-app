@@ -1,4 +1,22 @@
-import { plannerOrder, spreadId, type Backup, type View } from "./model";
+import {
+  plannerOrder,
+  resolvedBookmarkNames,
+  spreadId,
+  type Backup,
+  type View,
+} from "./model";
+
+// PDF destinations are one-based sheets, each containing one binder spread.
+export function exportBookmarks(data: Backup, views: View[]) {
+  const bookmarked = new Set(data.settings.bookmarks ?? []);
+  const names = resolvedBookmarkNames(data.settings);
+  return views.flatMap((view, index) => {
+    const id = spreadId(view);
+    return bookmarked.has(id)
+      ? [{ title: names[id], pageNumber: index + 1 }]
+      : [];
+  });
+}
 
 // Include ink outside the active year, even if no organization was ever saved.
 // Saved ordering is authoritative; previously unlisted ink is appended once.

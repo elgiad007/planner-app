@@ -8,6 +8,8 @@ Select **Export PDF**, choose **Current spread** or **Entire binder**, then **Cr
 
 Each PDF sheet contains the left and right paper templates and handwriting. Rings, tabs, selection handles and app controls are omitted. Calendar dates, custom paper and duplicated calendar templates use the same React templates as the planner. Pressure-sensitive pen/pencil and highlighter rendering share the app's drawing helpers. Export uses a fixed 600 x 800 logical page, rasterized at twice that resolution and compressed as JPEG; text and ink in the PDF are flattened visual content, not selectable vector content.
 
+Saved binder bookmarks are included as native PDF bookmarks, using the names shown in the planner and ordered by their exported spreads. Open the PDF reader's bookmarks/navigation panel to use them. Current-spread exports include only bookmarks for that spread. Bookmark support and panel visibility depend on the PDF reader.
+
 Entire binder export preserves saved ordering, includes generated 2027/current-year pages, and appends any handwritten calendar spreads from previously visited years that are not already listed. If no ordering was saved, calendars are interleaved by date. Only one paper canvas is rendered at a time, although compressed PDF images accumulate until download. Very large binders can still exceed iPad memory; use current-spread exports if needed. Existing import limits remain 100 MB, 20,000 page records and five million points.
 
 PDF files cannot replace **Download backup**. JSON backups retain editable strokes, ordering and bookmarks. PDF generation works offline after the complete app precache is installed; no planner content is sent to a server. A generated PDF remains a snapshot of the planner at generation time.
