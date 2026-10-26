@@ -31,6 +31,7 @@ try {
       const r = document.querySelector(".book").getBoundingClientRect();
       const p = document.querySelector(".page").getBoundingClientRect();
       const doc = document.documentElement;
+      const viewport = document.querySelector(".zoom-viewport").getBoundingClientRect();
       return {
         x: r.x,
         y: r.y,
@@ -40,6 +41,8 @@ try {
         ph: p.height,
         sw: doc.scrollWidth,
         sh: doc.scrollHeight,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
       };
     });
     console.log(width, height, layout);
@@ -55,8 +58,12 @@ try {
       "paper aspect ratio",
     );
     assert.ok(layout.sw <= width && layout.sh <= height, "no document scroll");
-    if (width === 1440)
-      assert.ok(layout.h > height * 0.9, "spread uses available height");
+    assert.equal(layout.viewportHeight, height, "workspace uses full height");
+    assert.ok(
+      Math.abs(layout.w - (layout.viewportWidth - 60)) < 2 ||
+        Math.abs(layout.h - (height - 20)) < 2,
+      "spread fills available width or height while preserving paper proportions",
+    );
     await page.screenshot({
       path: `test-results/docks-${width}x${height}.png`,
     });
