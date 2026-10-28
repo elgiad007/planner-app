@@ -48,30 +48,7 @@ The production app is an installable progressive web app (PWA). On iPad, open it
 
 Once cached, the planner and PDF export work offline. In Help, **Check for updates** checks online for a new app release. An available update offers a backup-before-update flow.
 
-Real-device iPad/Safari/Apple Pencil acceptance testing remains outstanding; see the [testing checklists](doc/README.md).
-
-## Run locally
-
-Install Node.js and pnpm as described in the [running and hosting guide](doc/running-and-hosting.md), then run:
-
-```sh
-pnpm install --frozen-lockfile
-pnpm dev --host 127.0.0.1
-```
-
-On Windows, you can also double-click `start-test-server.cmd`. It starts a localhost development server and opens your browser. Source changes refresh automatically; keep the server window open and press Ctrl+C to stop it. Nothing is uploaded.
-
-Build, run unit tests, and preview the production app with:
-
-```sh
-pnpm test
-pnpm build
-pnpm preview --host 127.0.0.1 --port 4173
-```
-
-Use the production preview to test offline behavior; development mode does not install the service worker. Localhost and a hosted site have separate browser storage.
-
-## Hosting and technical details
+## Hosting
 
 The app uses React, TypeScript, and Vite, with IndexedDB for planner storage and a service worker for offline app files. It runs as a static website: no application backend, server database, or account service is required.
 
@@ -79,7 +56,7 @@ To host it, upload only the **contents of `dist/`**, including `.htaccess`, to t
 
 Further documentation:
 
-- [Documentation index and testing checklists](doc/README.md)
+- [User guide](doc/README.md)
 - [Data storage and backups](doc/data-storage.md)
 - [Keyboard shortcuts](doc/keyboard-shortcuts.md)
 - [Running, hosting, and updating](doc/running-and-hosting.md)
