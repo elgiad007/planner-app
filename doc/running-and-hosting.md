@@ -24,7 +24,7 @@ pnpm preview --host 127.0.0.1 --port 4173
 
 Open http://127.0.0.1:4173 on the same computer. A plain HTTP LAN address is not a substitute for an HTTPS iPad installation. Localhost development and the hosted domain have separate local databases.
 
-## cPanel deployment
+## Deploy to your hosting service
 
 To rebuild `dist/` from the current source and refresh the release ZIP, run:
 
@@ -42,13 +42,13 @@ Numbered stages and live build output show progress. The final summary displays 
 
 The script requires pnpm and installed dependencies (`pnpm install --frozen-lockfile` on first setup). It works from any working directory when given the script's full path. It runs the existing production build, packages every output file including `.htaccess` directly at the ZIP root, and verifies file counts and SHA-256 hashes before replacing `release/my-pastel-planner-v<version>.zip`. The version is read automatically from `package.json`; the current filename is `my-pastel-planner-v0.4.0.zip`. A failed build or verification preserves the previous ZIP. It does not upload or deploy anything.
 
-1. Enable HTTPS for plan.lucdaigle.net and redirect HTTP to HTTPS through cPanel.
+1. Choose the domain or subdomain where you want to host the planner. Enable HTTPS and redirect HTTP to HTTPS using your hosting provider's settings.
 2. Build with `pnpm build`. The output is in `dist/`; `scripts/offline.mjs` generates the icons, manifest and complete offline asset list.
 3. Upload the versioned ZIP from `release/` (currently `my-pastel-planner-v0.4.0.zip`) or ZIP the **contents** of `dist/`, including `.htaccess`.
-4. In cPanel File Manager, open the exact document root assigned to plan.lucdaigle.net. Enable “Show Hidden Files” in Settings. Extract the ZIP there so `index.html`, `sw.js`, `.htaccess`, icons, manifest and `assets/` are directly in the domain root, not inside `dist/` or another subfolder.
-5. Visit https://plan.lucdaigle.net and follow the iPad checks below. No Node process, PHP scripts or database are needed on the server.
+4. Use your hosting provider's file manager, SFTP, or deployment tool to upload or extract the files into the document root assigned to your chosen domain or subdomain. Include hidden files (in cPanel File Manager, enable “Show Hidden Files” in Settings). Ensure `index.html`, `sw.js`, `.htaccess`, icons, manifest and `assets/` are directly in that root, not inside `dist/` or another subfolder.
+5. Visit your planner's HTTPS address and follow the iPad checks below. No Node process, PHP scripts or database are needed on the server.
 
-Do not upload source files, node_modules, tests, Git metadata or personal JSON backups. The build is intended for the domain root, not a subdirectory. If the server rejects `.htaccess`, check Apache overrides with the host; preserve the MIME types and no-cache handling for index.html, manifest and sw.js.
+Do not upload source files, node_modules, tests, Git metadata or personal JSON backups. The build is intended for the domain root, not a subdirectory. The included `.htaccess` configures Apache hosting. If the server rejects it, check Apache overrides with your host. On other hosting services, configure equivalent MIME types and no-cache handling for `index.html`, `manifest.webmanifest` and `sw.js` using the provider's settings.
 
 ## iPad installation
 
