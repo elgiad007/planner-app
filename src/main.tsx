@@ -9,6 +9,7 @@ import { ToolButton } from "./ToolButton";
 import { SHORTCUTS, TOOL_KEYS } from "./shortcuts";
 import { StampTool } from "./StampTool";
 import { StampLayer } from "./StampLayer";
+import { stampIndex } from "./stampIndex";
 import { type Stamp, type StampPlacement } from "./model";
 import { TextLayer } from "./TextLayer";
 import { Ink } from "./Ink";
@@ -144,6 +145,11 @@ function App() {
   );
   useEffect(() => () => pdfAbort.current?.abort(), []);
   const [selectedStamp, setSelectedStamp] = useState<string | null>(null);
+  const [findingStamp, setFindingStamp] = useState<string | null>(null);
+  const stampMatches = useMemo(
+    () => stampIndex(settings, pages),
+    [settings, pages],
+  );
   const [colorRevision, setColorRevision] = useState(0);
   const color = tool === "highlighter" ? highlighterColor : inkColor;
   const width = tool === "highlighter" ? highlighterWidth : inkWidth;
@@ -671,6 +677,7 @@ function App() {
       settingsRef.current = data.settings;
       setPages(p);
       setSettings(data.settings);
+      setFindingStamp(null);
       history.current = { past: [], future: [] };
       failed.current = false;
       setError("");
@@ -1043,6 +1050,21 @@ function App() {
   const currentInsert = settings.inserts?.find((i) => i.id === view.insert);
   const bookmarked = settings.bookmarks?.includes(spreadId(view));
   const content = contentIndex(settings, pages);
+  const foundStamp = settings.stamps?.find((s) => s.id === findingStamp);
+  const matches = foundStamp ? stampMatches.get(foundStamp.id) : undefined;
+  const matchingSpreads = matches?.spreads ?? [];
+  const currentMatch = matchingSpreads.findIndex(
+    (v) => spreadId(v) === spreadId(view),
+  );
+  const findNeighbor = (direction: number) => {
+    const next =
+      currentMatch < 0
+        ? direction > 0
+          ? matchingSpreads[0]
+          : matchingSpreads[matchingSpreads.length - 1]
+        : matchingSpreads[currentMatch + direction];
+    if (next) navigate(next);
+  };
   return (
     <main className="planner-shell">
       <header className="planner-identity">
@@ -1896,11 +1918,16 @@ function App() {
                 <button
                   disabled={locked}
                   key={month}
+                  data-stamp-match={
+                    matches?.months.has(
+                      `${year}-${String(i + 1).padStart(2, "0")}`,
+                    ) ?? false
+                  }
                   data-has-content={content.months.has(
                     `${year}-${String(i + 1).padStart(2, "0")}`,
                   )}
-                  aria-label={`${month} ${year}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? ", has content" : ""}`}
-                  title={`${month}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? " — has content" : ""}`}
+                  aria-label={`${month} ${year}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? ", has content" : ""}${matches?.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? `, contains ${foundStamp?.name}` : ""}`}
+                  title={`${month}${content.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? " — has content" : ""}${matches?.months.has(`${year}-${String(i + 1).padStart(2, "0")}`) ? ` — contains ${foundStamp?.name}` : ""}`}
                   className={
                     parseDate(view.date).getUTCMonth() === i ? "active" : ""
                   }
@@ -1998,6 +2025,96 @@ function App() {
                 setTool("stamp");
               }}
               onLibrary={changeStampLibrary}
+              finding={findingStamp}
+              counts={
+                new Map(
+                  [...stampMatches].map(([id, entry]) => [
+                    id,
+                    entry.spreads.length,
+                  ]),
+                )
+              }
+              onFind={setFindingStamp}
+              finder={
+                <section
+                  className="stamp-finder"
+                  aria-label="Find stamped spreads"
+                >
+                  {foundStamp && (
+                    <section
+                      className="stamp-finding"
+                      aria-label="Stamp matches"
+                    >
+                      <span role="status">
+                        Finding: {foundStamp.name} · {matchingSpreads.length}{" "}
+                        spreads
+                        {currentMatch >= 0
+                          ? ` · ${currentMatch + 1} of ${matchingSpreads.length}`
+                          : ""}
+                      </span>
+                      <button
+                        disabled={
+                          locked ||
+                          !matchingSpreads.length ||
+                          currentMatch === 0
+                        }
+                        onClick={() => findNeighbor(-1)}
+                      >
+                        Previous match
+                      </button>
+                      <button
+                        disabled={
+                          locked ||
+                          !matchingSpreads.length ||
+                          currentMatch === matchingSpreads.length - 1
+                        }
+                        onClick={() => findNeighbor(1)}
+                      >
+                        Next match
+                      </button>
+                      <button
+                        disabled={locked}
+                        onClick={() => setFindingStamp(null)}
+                      >
+                        Clear stamp filter
+                      </button>
+                    </section>
+                  )}
+                  {foundStamp && (
+                    <>
+                      <p>
+                        {foundStamp.name}: {matchingSpreads.length} matching
+                        spreads
+                      </p>
+                      <div className="stamp-find-results">
+                        {matchingSpreads.map((v) => (
+                          <button
+                            key={spreadId(v)}
+                            disabled={locked}
+                            aria-current={
+                              spreadId(v) === spreadId(view)
+                                ? "page"
+                                : undefined
+                            }
+                            onClick={(e) => {
+                              navigate(v);
+                              e.currentTarget
+                                .closest<HTMLElement>("[popover]")
+                                ?.hidePopover();
+                            }}
+                          >
+                            {spreadTitle(v, settings.inserts)}
+                            {v.insert ? ` · ${v.date}` : ""}
+                          </button>
+                        ))}
+                      </div>
+                      {!matchingSpreads.length && (
+                        <p>No spreads contain this stamp.</p>
+                      )}
+                    </>
+                  )}
+                </section>
+              }
             />
             <span className="divider" />
             <div className="dock-palette" role="group" aria-label="Colors">
@@ -2249,11 +2366,14 @@ function App() {
               Stamps to draw a reusable stamp (up to 200 × 200), choose its
               thumbnail, and tap a page to place it repeatedly. Select / move
               lets you drag or delete a placed stamp. Removing a stamp from the
-              picker preserves existing page placements. Highlighter is
-              translucent; Pencil varies with pressure. Export PDF creates a
-              visual copy of the current spread or entire binder. Create it,
-              then tap Download PDF and save in Files. PDFs cannot be opened as
-              editable planners.
+              picker preserves existing page placements. Use Find stamped
+              spreads in Stamps to list matching spreads, then use Previous
+              match and Next match to browse them. Diamonds on month tabs mark
+              months with the stamp being found. Clear stamp filter ends the
+              search. Highlighter is translucent; Pencil varies with pressure.
+              Export PDF creates a visual copy of the current spread or entire
+              binder. Create it, then tap Download PDF and save in Files. PDFs
+              cannot be opened as editable planners.
             </p>
             <button
               onClick={() => {

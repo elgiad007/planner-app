@@ -32,14 +32,83 @@ export function StampTool({
   disabled,
   onChoose,
   onLibrary,
+  finder,
+  finding,
+  counts,
+  onFind,
 }: {
   library: Stamp[];
   selected: string | null;
   disabled: boolean;
   onChoose: (id: string) => void;
   onLibrary: (library: Stamp[]) => void;
+  finder: React.ReactNode;
+  finding: string | null;
+  counts: ReadonlyMap<string, number>;
+  onFind: (id: string) => void;
 }) {
   const [creating, setCreating] = useState(false);
+  function card(stamp: Stamp) {
+    const count = counts.get(stamp.id) ?? 0;
+    return (
+      <div
+        key={stamp.id}
+        className="stamp-card"
+        data-finding={finding === stamp.id}
+      >
+        {stamp.hidden ? (
+          <div className="stamp-card-preview">
+            <StampPreview stamp={stamp} />
+            <span>{stamp.name}</span>
+          </div>
+        ) : (
+          <button
+            disabled={disabled}
+            aria-label={`Use stamp: ${stamp.name}`}
+            aria-pressed={selected === stamp.id}
+            onClick={(e) => {
+              onChoose(stamp.id);
+              e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
+            }}
+          >
+            <StampPreview stamp={stamp} />
+            <span>{stamp.name}</span>
+          </button>
+        )}
+        <button
+          className="stamp-card-action"
+          disabled={disabled}
+          aria-label={`Find spreads: ${stamp.name} (${count})${stamp.hidden ? " · removed from library" : ""}`}
+          aria-pressed={finding === stamp.id}
+          onClick={() => onFind(stamp.id)}
+        >
+          Find · {count}
+        </button>
+        {!stamp.hidden && (
+          <button
+            className="stamp-card-action"
+            disabled={disabled}
+            aria-label={`Remove stamp: ${stamp.name}`}
+            onClick={() => {
+              if (
+                !confirm(
+                  `Remove “${stamp.name}” from the stamp library? Existing page placements will be kept and remain searchable.`,
+                )
+              )
+                return;
+              onLibrary(
+                library.map((s) =>
+                  s.id === stamp.id ? { ...s, hidden: true } : s,
+                ),
+              );
+            }}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <>
       <DockMenu
@@ -49,46 +118,24 @@ export function StampTool({
         disabled={disabled}
         selected={selected !== null}
       >
-        <p>Choose a stamp, then tap a page to place it.</p>
+        <p>Tap a thumbnail to place a stamp, or Find to browse its spreads.</p>
         <div className="stamp-grid">
-          {library
-            .filter((s) => !s.hidden)
-            .map((stamp) => (
-              <div key={stamp.id}>
-                <button
-                  disabled={disabled}
-                  aria-label={`Use stamp: ${stamp.name}`}
-                  aria-pressed={selected === stamp.id}
-                  onClick={(e) => {
-                    onChoose(stamp.id);
-                    e.currentTarget
-                      .closest<HTMLElement>("[popover]")
-                      ?.hidePopover();
-                  }}
-                >
-                  <StampPreview stamp={stamp} />
-                  <span>{stamp.name}</span>
-                </button>
-                <button
-                  disabled={disabled}
-                  aria-label={`Remove stamp: ${stamp.name}`}
-                  onClick={() =>
-                    onLibrary(
-                      library.map((s) =>
-                        s.id === stamp.id ? { ...s, hidden: true } : s,
-                      ),
-                    )
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+          {library.filter((s) => !s.hidden).map(card)}
         </div>
+        {library.some((s) => s.hidden && counts.has(s.id)) && (
+          <section aria-label="Previously used stamps">
+            <h3>Previously used stamps</h3>
+            <div className="stamp-grid">
+              {library.filter((s) => s.hidden && counts.has(s.id)).map(card)}
+            </div>
+          </section>
+        )}
+        {finder}
         {!library.some((s) => !s.hidden) && (
           <p>No stamps yet. Draw your first stamp below.</p>
         )}
         <button
+          className="stamp-create-button"
           disabled={disabled || library.length >= 500}
           onClick={(e) => {
             e.currentTarget.closest<HTMLElement>("[popover]")?.hidePopover();
@@ -194,120 +241,133 @@ function StampEditor({
         }}
       >
         <h2>Create stamp</h2>
-        <label>
-          Stamp name
-          <input
-            autoFocus
-            required
-            maxLength={60}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <p>200 × 200 maximum. Draw with a pen, mouse, or finger.</p>
-        <div className="stamp-editor-controls">
-          <label>
-            Color
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
+        <div className="stamp-editor-layout">
+          <div className="stamp-editor-options">
+            <label>
+              Stamp name
+              <input
+                autoFocus
+                required
+                maxLength={60}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <p>200 × 200 maximum. Draw with a pen, mouse, or finger.</p>
+            <div className="stamp-editor-controls">
+              <label>
+                Color
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                />
+              </label>
+              <label>
+                Pen width
+                <input
+                  aria-label="Stamp pen width"
+                  type="range"
+                  min={1}
+                  max={6}
+                  step={0.5}
+                  value={width}
+                  onChange={(e) => setWidth(Number(e.target.value))}
+                />
+              </label>
+              <button
+                type="button"
+                aria-pressed={eraser}
+                onClick={() => setEraser(!eraser)}
+              >
+                Eraser
+              </button>
+            </div>
+
+            <div className="stamp-editor-controls">
+              <button
+                type="button"
+                disabled={!strokes.length}
+                onClick={() => setStrokes(strokes.slice(0, -1))}
+              >
+                Undo stroke
+              </button>
+              <button
+                type="button"
+                disabled={!strokes.length}
+                onClick={() => setStrokes([])}
+              >
+                Clear
+              </button>
+            </div>
+            {error && <p role="alert">{error}</p>}
+            <div>
+              <button
+                disabled={disabled || !name.trim() || !strokes.length}
+                type="submit"
+              >
+                Save stamp
+              </button>
+              <button type="button" onClick={onCancel}>
+                Cancel
+              </button>
+            </div>
+          </div>
+          <div className="stamp-editor-canvas">
+            <canvas
+              ref={canvas}
+              className="stamp-drawing"
+              width={400}
+              height={400}
+              aria-label="Stamp drawing area"
+              onPointerDown={(e) => {
+                if (e.button !== 0 || active.current || disabled) return;
+                e.preventDefault();
+                const p = point(e);
+                active.current = {
+                  id: e.pointerId,
+                  stroke: {
+                    id: crypto.randomUUID(),
+                    color,
+                    width,
+                    points: [p],
+                  },
+                  remaining: eraser ? erase(strokes, p) : strokes,
+                };
+                e.currentTarget.setPointerCapture(e.pointerId);
+                paint(
+                  eraser
+                    ? active.current.remaining
+                    : [...strokes, active.current.stroke],
+                );
+              }}
+              onPointerMove={(e) => {
+                const a = active.current;
+                if (!a || a.id !== e.pointerId) return;
+                const p = point(e);
+                if (eraser) a.remaining = erase(a.remaining, p);
+                else if (a.stroke.points.length < 20000)
+                  a.stroke.points.push(p);
+                paint(eraser ? a.remaining : [...strokes, a.stroke]);
+              }}
+              onPointerUp={(e) => {
+                const a = active.current;
+                if (!a || a.id !== e.pointerId) return;
+                active.current = null;
+                setStrokes(eraser ? a.remaining : [...strokes, a.stroke]);
+              }}
+              onPointerCancel={() => {
+                active.current = null;
+                paint(strokes);
+              }}
+              onLostPointerCapture={() => {
+                if (active.current) {
+                  active.current = null;
+                  paint(strokes);
+                }
+              }}
             />
-          </label>
-          <label>
-            Pen width
-            <input
-              aria-label="Stamp pen width"
-              type="range"
-              min={1}
-              max={6}
-              step={0.5}
-              value={width}
-              onChange={(e) => setWidth(Number(e.target.value))}
-            />
-          </label>
-          <button
-            type="button"
-            aria-pressed={eraser}
-            onClick={() => setEraser(!eraser)}
-          >
-            Eraser
-          </button>
-        </div>
-        <canvas
-          ref={canvas}
-          className="stamp-drawing"
-          width={400}
-          height={400}
-          aria-label="Stamp drawing area"
-          onPointerDown={(e) => {
-            if (e.button !== 0 || active.current || disabled) return;
-            e.preventDefault();
-            const p = point(e);
-            active.current = {
-              id: e.pointerId,
-              stroke: { id: crypto.randomUUID(), color, width, points: [p] },
-              remaining: eraser ? erase(strokes, p) : strokes,
-            };
-            e.currentTarget.setPointerCapture(e.pointerId);
-            paint(
-              eraser
-                ? active.current.remaining
-                : [...strokes, active.current.stroke],
-            );
-          }}
-          onPointerMove={(e) => {
-            const a = active.current;
-            if (!a || a.id !== e.pointerId) return;
-            const p = point(e);
-            if (eraser) a.remaining = erase(a.remaining, p);
-            else if (a.stroke.points.length < 20000) a.stroke.points.push(p);
-            paint(eraser ? a.remaining : [...strokes, a.stroke]);
-          }}
-          onPointerUp={(e) => {
-            const a = active.current;
-            if (!a || a.id !== e.pointerId) return;
-            active.current = null;
-            setStrokes(eraser ? a.remaining : [...strokes, a.stroke]);
-          }}
-          onPointerCancel={() => {
-            active.current = null;
-            paint(strokes);
-          }}
-          onLostPointerCapture={() => {
-            if (active.current) {
-              active.current = null;
-              paint(strokes);
-            }
-          }}
-        />
-        <div className="stamp-editor-controls">
-          <button
-            type="button"
-            disabled={!strokes.length}
-            onClick={() => setStrokes(strokes.slice(0, -1))}
-          >
-            Undo stroke
-          </button>
-          <button
-            type="button"
-            disabled={!strokes.length}
-            onClick={() => setStrokes([])}
-          >
-            Clear
-          </button>
-        </div>
-        {error && <p role="alert">{error}</p>}
-        <div>
-          <button
-            disabled={disabled || !name.trim() || !strokes.length}
-            type="submit"
-          >
-            Save stamp
-          </button>
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
+          </div>
         </div>
       </form>
     </dialog>,

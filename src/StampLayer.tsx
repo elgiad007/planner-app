@@ -36,6 +36,20 @@ export function StampLayer({
     );
     setSelected(id);
   }
+  function deletePlacement(id: string) {
+    const placement = placements.find((p) => p.id === id);
+    if (!placement) return;
+    const name =
+      library.find((s) => s.id === placement.stampId)?.name ?? "stamp";
+    if (
+      !confirm(
+        `Delete “${name}” from this page? The stamp will remain in your library.`,
+      )
+    )
+      return;
+    onChange(placements.filter((p) => p.id !== id));
+    setSelected(null);
+  }
   useEffect(() => {
     const clear = (event: Event) => {
       if ((event as CustomEvent).detail !== uid) setSelected(null);
@@ -144,7 +158,8 @@ export function StampLayer({
                 if (!active || placing) return;
                 if (e.key === "Delete" || e.key === "Backspace") {
                   e.preventDefault();
-                  onChange(placements.filter((s) => s.id !== p.id));
+                  e.stopPropagation();
+                  if (!e.repeat) deletePlacement(p.id);
                 }
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -186,8 +201,7 @@ export function StampLayer({
         <div className="text-actions stamp-actions">
           <button
             onClick={() => {
-              onChange(placements.filter((p) => p.id !== selected));
-              setSelected(null);
+              if (selected) deletePlacement(selected);
             }}
           >
             Delete stamp

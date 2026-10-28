@@ -34,6 +34,24 @@ try {
   await page.goto(process.env.PLANNER_TEST_URL ?? "http://127.0.0.1:4173/");
   await openDock(page, "Stamps");
   await page.getByRole("button", { name: "Create stamp", exact: true }).click();
+  const editor = page.getByRole("dialog", {
+    name: "Create stamp",
+    exact: true,
+  });
+  assert.equal(
+    await editor.evaluate(
+      (el) =>
+        el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth,
+    ),
+    true,
+  );
+  const optionsBounds = await page
+    .locator(".stamp-editor-options")
+    .boundingBox();
+  const drawingBounds = await page
+    .getByLabel("Stamp drawing area")
+    .boundingBox();
+  assert.ok(optionsBounds.x + optionsBounds.width < drawingBounds.x);
   await page.getByRole("textbox", { name: "Stamp name" }).fill("Flower");
   const area = await page.getByLabel("Stamp drawing area").boundingBox();
   await page.mouse.move(area.x + 40, area.y + 40);
@@ -61,14 +79,80 @@ try {
   await page.mouse.move(box.x + 60, box.y + 50, { steps: 5 });
   await page.mouse.up();
   assert.ok((await stamp.boundingBox()).x > box.x + 25);
-  await page.getByRole("button", { name: "Delete stamp", exact: true }).click();
+  const deleteStamp = page.getByRole("button", {
+    name: "Delete stamp",
+    exact: true,
+  });
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await deleteStamp.click();
+  assert.equal(await layer.locator("foreignObject").count(), 2);
+  page.once("dialog", (dialog) => dialog.accept());
+  await deleteStamp.click();
   assert.equal(await layer.locator("foreignObject").count(), 1);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   assert.equal(await layer.locator("foreignObject").count(), 2);
   await openDock(page, "Stamps");
   await page
-    .getByRole("button", { name: "Remove stamp: Flower", exact: true })
+    .getByRole("button", { name: "Find spreads: Flower (1)", exact: true })
     .click();
+  assert.equal(
+    await page
+      .locator('.stamp-card[data-finding="true"] .stamp-preview')
+      .count(),
+    1,
+  );
+  assert.equal(await page.locator(".workspace .stamp-finding").count(), 0);
+  assert.equal(
+    await page.locator(".dock-panel .stamp-finding").isVisible(),
+    true,
+  );
+  await page
+    .getByRole("button", { name: "Month · 2027-01-01", exact: true })
+    .click();
+  assert.equal(
+    await page.locator('.month-tabs button[data-stamp-match="true"]').count(),
+    1,
+  );
+  await openDock(page, "Stamps");
+  assert.match(
+    await page.getByRole("region", { name: "Stamp matches" }).innerText(),
+    /Finding: Flower · 1 spreads/,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  const matchPanel = page.getByRole("region", { name: "Stamp matches" });
+  await matchPanel.scrollIntoViewIfNeeded();
+  assert.equal(
+    await matchPanel.evaluate((el) => el.scrollWidth <= el.clientWidth),
+    true,
+  );
+  const matchBounds = await matchPanel.boundingBox();
+  assert.ok(matchBounds.x >= 0 && matchBounds.x + matchBounds.width <= 390);
+  assert.ok(matchBounds.y >= 0 && matchBounds.y + matchBounds.height <= 844);
+  await page.setViewportSize({ width: 1366, height: 1024 });
+  await page.getByRole("button", { name: "Clear stamp filter" }).click();
+  assert.equal(
+    await page.locator('.month-tabs button[data-stamp-match="true"]').count(),
+    0,
+  );
+  const removeStamp = page.getByRole("button", {
+    name: "Remove stamp: Flower",
+    exact: true,
+  });
+  page.once("dialog", async (dialog) => {
+    assert.equal(dialog.type(), "confirm");
+    assert.match(dialog.message(), /Existing page placements will be kept/);
+    await dialog.dismiss();
+  });
+  await removeStamp.click();
+  await removeStamp.waitFor();
+  page.once("dialog", (dialog) => dialog.accept());
+  await removeStamp.click();
+  await page
+    .getByRole("button", {
+      name: "Find spreads: Flower (1) · removed from library",
+      exact: true,
+    })
+    .waitFor();
   await page.getByRole("button", { name: "Close Stamps", exact: true }).click();
   await page.waitForFunction(
     () =>

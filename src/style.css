@@ -1467,12 +1467,97 @@ main {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+.dock-panel[aria-label="Stamps"] {
+  width: min(420px, calc(100vw - 156px));
+}
+@media (max-width: 700px) {
+  .dock-panel[aria-label="Stamps"] {
+    width: calc(100vw - 72px);
+  }
+}
+.stamp-finding {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: #fff8f1;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.stamp-finding [role="status"] {
+  flex-basis: 100%;
+}
+.stamp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border: 2px solid #d6c9e8;
+  border-radius: 8px;
+  background: #fffdfb;
+}
+.stamp-card[data-finding="true"] {
+  border-color: #6c628d;
+  background: #f0eaf7;
+}
+.stamp-card-preview {
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.stamp-card-preview span {
+  display: block;
+}
+.stamp-finder {
+  border-top: 1px solid #d6c9e8;
+  margin-top: 12px;
+}
+.stamp-find-results {
+  display: grid;
+  gap: 6px;
+}
+.stamp-find-results {
+  max-height: 240px;
+  overflow: auto;
+}
+.stamp-finder button {
+  overflow-wrap: anywhere;
+  border: 1px solid #b4a3c5;
+  border-radius: 6px;
+}
+.stamp-finder button[aria-current="page"] {
+  border-color: #6c628d;
+  background: #e3d8ec;
+}
+.month-tabs button[data-stamp-match="true"]::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  background: #403449;
+  transform: rotate(45deg);
+}
 .stamp-grid > div {
   min-width: 0;
 }
 .stamp-grid button {
   width: 100%;
   overflow-wrap: anywhere;
+}
+.stamp-card .stamp-card-action,
+.stamp-create-button {
+  border: 1px solid #b4a3c5;
+  border-radius: 6px;
+}
+.stamp-create-button {
+  margin-top: 12px;
+}
+.stamp-card .stamp-card-action[aria-pressed="true"] {
+  border-color: #6c628d;
+  background: #e3d8ec;
 }
 .stamp-grid .stamp-preview {
   width: 64px;
@@ -1556,6 +1641,65 @@ main {
 .text-editor button {
   margin-right: 8px;
   min-height: 40px;
+}
+.stamp-editor {
+  width: min(780px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+}
+.stamp-editor h2 {
+  margin: 0 0 16px;
+}
+.stamp-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 400px);
+  gap: 24px;
+  align-items: start;
+}
+.stamp-editor-options {
+  min-width: 0;
+}
+.stamp-editor .stamp-editor-options > label {
+  margin-top: 0;
+}
+.stamp-editor-options > label > input {
+  margin-top: 6px;
+}
+.stamp-editor .stamp-editor-controls {
+  margin: 8px 0 16px;
+}
+.stamp-editor .stamp-editor-controls label {
+  margin: 0;
+}
+.stamp-editor button {
+  border: 1px solid #b4a3c5;
+  border-radius: 6px;
+  margin: 0;
+  min-height: 44px;
+}
+.stamp-editor button[aria-pressed="true"] {
+  border-color: #6c628d;
+  background: #e3d8ec;
+}
+.stamp-editor-options > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.stamp-editor-canvas {
+  min-width: 0;
+}
+@media (max-width: 620px) {
+  .stamp-editor {
+    padding: 16px;
+  }
+  .stamp-editor-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .stamp-editor-canvas {
+    width: min(100%, 320px);
+    justify-self: center;
+  }
 }
 
 .planner-identity {
