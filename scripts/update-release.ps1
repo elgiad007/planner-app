@@ -53,7 +53,7 @@ try {
         throw "Build failed (exit $LASTEXITCODE). The previous release ZIP was preserved."
     }
 
-    foreach ($requiredFile in @('index.html', 'sw.js', 'manifest.webmanifest', '.htaccess')) {
+    foreach ($requiredFile in @('index.html', 'sw.js', 'manifest.webmanifest', '.htaccess', 'LICENSE.txt', 'COPYRIGHT.txt', 'source.tar.gz', 'third-party-notices.txt')) {
         if (-not (Test-Path -LiteralPath (Join-Path $distPath $requiredFile) -PathType Leaf)) {
             throw "Build output is missing $requiredFile. The previous release ZIP was preserved."
         }

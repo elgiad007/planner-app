@@ -2300,6 +2300,38 @@ function App() {
                 </button>
               </p>
             )}
+            <h3>License and source code</h3>
+            <p>
+              My Pastel Planner — Copyright © 2026 Luc Daigle. Licensed under
+              the GNU General Public License, version 3 or later. You may use,
+              modify, and redistribute this software under that license. This
+              software comes with no warranty.
+            </p>
+            <p>
+              <a href="/LICENSE.txt" target="_blank" rel="noopener noreferrer">
+                Read the license
+              </a>{" "}
+              ·{" "}
+              <a href="/source.tar.gz" download>
+                Download this version’s source
+              </a>{" "}
+              ·{" "}
+              <a
+                href="/third-party-notices.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Third-party notices
+              </a>{" "}
+              ·{" "}
+              <a
+                href="https://github.com/elgiad007/planner-app"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Project on GitHub
+              </a>
+            </p>
             <h3>Keyboard shortcuts</h3>
             <p>
               Shortcuts pause while editing form fields and while writing or

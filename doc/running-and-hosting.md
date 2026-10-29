@@ -34,7 +34,15 @@ On Windows, you can instead double-click `update-release.cmd` after installing d
 
 The app runs as a static website. No Node process, PHP scripts, server database, or account service is needed. The build is intended for a domain or subdomain root, not a subdirectory.
 
-Do not upload source files, `node_modules`, tests, Git metadata, or personal JSON backups.
+Keep the generated `LICENSE.txt`, `COPYRIGHT.txt`, `source.tar.gz`, and
+`third-party-notices.txt` with the hosted files. Help links to the source archive
+for that exact build. The archive includes project source, dependency lockfile,
+patches, and build instructions; dependencies are installed using pnpm. If you
+modify the app, rebuild and publish the matching archive with it. Keep notices
+intact and document your changes and their dates when distributing modified versions.
+
+Do not upload loose development files, `node_modules`, Git metadata, or personal
+JSON backups. The generated source archive is intended for public distribution.
 
 The included `.htaccess` configures Apache hosting. If the server rejects it, check Apache overrides with your host. On other hosting services, configure equivalent MIME types and no-cache handling for `index.html`, `manifest.webmanifest`, and `sw.js` using the provider's settings. Keep `third-party-notices.txt` with the hosted files for dependency license notices.
 

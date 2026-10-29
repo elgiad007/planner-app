@@ -1,5 +1,19 @@
 # My Pastel Planner
 
+## License
+
+Copyright © 2026 Luc Daigle. My Pastel Planner is free software licensed under
+the [GNU General Public License, version 3 or later](LICENSE)
+(`GPL-3.0-or-later`). You may use, modify, and redistribute it under those terms.
+When distributing this app or modified versions, provide the corresponding source
+and preserve the GPL rights of recipients. Commercial use is permitted. The
+software is provided without warranty; see the license for full terms.
+
+Third-party dependencies retain their own licenses. Production builds include
+`third-party-notices.txt`, the GPL text, and a `source.tar.gz` archive containing
+the matching project source and build instructions. These are linked from Help.
+The software license does not apply to your personal planner entries or exports.
+
 My Pastel Planner is a digital DayTimer-style binder for planning your schedule, handwriting notes, making lists, and keeping ideas beside your calendar. It combines monthly and weekly calendars with customizable two-page spreads in a pastel paper-planner layout. It is designed around iPad and Apple Pencil use, with mouse, touch, and keyboard controls for other devices.
 
 **Your planner data stays on your device. Nothing you write or add to the planner is stored on a server or automatically uploaded.** The app saves your planner in your browser's local IndexedDB database. There are no accounts, cloud synchronization, or analytics. Handwriting, text, stamps, settings, and PDF generation are handled on your device.
