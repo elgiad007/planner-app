@@ -186,6 +186,40 @@ function App() {
   const [selectionReset, setSelectionReset] = useState(0);
   const dateInput = useRef<HTMLInputElement>(null);
   const [zoom, setZoom] = useState(100);
+  const [layout, setLayout] = useState(() => {
+    try {
+      return localStorage.getItem("planner-layout") || "auto";
+    } catch {
+      return "auto";
+    }
+  });
+  const [smallScreen, setSmallScreen] = useState(
+    () =>
+      matchMedia(
+        "(max-width: 700px), (max-width: 1000px) and (max-height: 600px)",
+      ).matches,
+  );
+  const mobile = layout === "mobile" || (layout === "auto" && smallScreen);
+  const [mobileSide, setMobileSide] = useState(0);
+  const [mobilePanel, setMobilePanel] = useState<"tools" | "options" | null>(
+    null,
+  );
+  const [fitPage, setFitPage] = useState(false);
+  useEffect(() => {
+    const query = matchMedia(
+      "(max-width: 700px), (max-width: 1000px) and (max-height: 600px)",
+    );
+    const update = () => setSmallScreen(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("planner-layout", layout);
+    } catch {
+      /* Optional device preference. */
+    }
+  }, [layout]);
   const [pinching, setPinching] = useState(false);
   const pinchingRef = useRef(false);
   const book = useWritingGuard(
@@ -206,9 +240,11 @@ function App() {
   const [editingBookmark, setEditingBookmark] = useState<string | null>(null);
   const [bookmarkDraft, setBookmarkDraft] = useState("");
   const [bookmarkRenameError, setBookmarkRenameError] = useState("");
-  const [turn, setTurn] = useState<{ next: View; direction: number } | null>(
-    null,
-  );
+  const [turn, setTurn] = useState<{
+    next: View;
+    direction: number;
+    side?: number;
+  } | null>(null);
   const turning = useRef(false);
   const gesture = useRef<{
     id: number;
@@ -350,6 +386,7 @@ function App() {
   }
   function navigate(next: View) {
     if (lock() || !validView(next)) return;
+    setMobileSide(0);
     commitView(next);
   }
   function updatePreference<K extends keyof ToolPreferences>(
@@ -387,9 +424,27 @@ function App() {
   function turnPage(direction: number) {
     if (lock()) return;
     const current = settingsRef.current;
+    if (mobile) {
+      const sameSpread =
+        (direction > 0 && mobileSide === 0) ||
+        (direction < 0 && mobileSide === 1);
+      const next = sameSpread
+        ? current.view
+        : turnDestination(current, direction);
+      if (!next || !validView(next)) return;
+      const side = direction > 0 ? (sameSpread ? 1 : 0) : sameSpread ? 0 : 1;
+      gesture.current = null;
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        if (!sameSpread) commitView(next);
+        setMobileSide(side);
+        return;
+      }
+      turning.current = true;
+      setTurn({ next, direction, side });
+      return;
+    }
     const next = turnDestination(current, direction);
-    if (!next) return;
-    if (!validView(next)) return;
+    if (!next || !validView(next)) return;
     gesture.current = null;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
       navigate(next);
@@ -1066,7 +1121,51 @@ function App() {
     if (next) navigate(next);
   };
   return (
-    <main className="planner-shell">
+    <main
+      className={`planner-shell${mobile ? " mobile-mode" : ""}${mobilePanel ? ` mobile-${mobilePanel}-open` : ""}${mobile && tool === "browse" && !hand ? " mobile-browse" : ""}`}
+    >
+      {mobile && (
+        <div
+          className="mobile-controls"
+          role="toolbar"
+          aria-label="Mobile controls"
+        >
+          <button
+            aria-expanded={mobilePanel === "tools"}
+            onClick={() => {
+              setExpanded(true);
+              setMobilePanel(mobilePanel === "tools" ? null : "tools");
+            }}
+          >
+            Tools
+          </button>
+          <button
+            disabled={locked}
+            aria-pressed={hand}
+            onClick={() => setHand(!hand)}
+          >
+            Pan
+          </button>
+          <button
+            disabled={locked}
+            aria-pressed={fitPage}
+            onClick={() => {
+              setFitPage(!fitPage);
+              setZoom(100);
+            }}
+          >
+            {fitPage ? "Fill width" : "Fit page"}
+          </button>
+          <button
+            aria-expanded={mobilePanel === "options"}
+            onClick={() =>
+              setMobilePanel(mobilePanel === "options" ? null : "options")
+            }
+          >
+            Options
+          </button>
+        </div>
+      )}
       <header className="planner-identity">
         <h1 title={plannerName}>{plannerName}</h1>
         <button
@@ -1103,6 +1202,23 @@ function App() {
         </div>
         <DockMenu label="Navigate" icon="▦" disabled={locked}>
           <nav className="nav-controls" aria-label="Planner navigation">
+            <label>
+              Layout{" "}
+              <select
+                aria-label="Planner layout"
+                value={layout}
+                disabled={locked}
+                onChange={(e) => {
+                  setLayout(e.target.value);
+                  setZoom(100);
+                  setMobilePanel(null);
+                }}
+              >
+                <option value="auto">Auto</option>
+                <option value="book">Book</option>
+                <option value="mobile">Mobile</option>
+              </select>
+            </label>
             <button
               title="Home (Home)"
               disabled={locked}
@@ -1610,6 +1726,11 @@ function App() {
           <small>Help</small>
         </button>
       </aside>
+      {mobile && mobilePanel === "options" && (
+        <p className="mobile-save-status" role="status">
+          {status} · {online ? "Online" : "Offline"}
+        </p>
+      )}
       <div className="workspace">
         <div className="spread-navigation">
           <div
@@ -1638,18 +1759,40 @@ function App() {
           </div>
           <button
             disabled={locked}
-            aria-label="Previous spread"
+            aria-label={mobile ? "Previous page" : "Previous spread"}
             title="Previous spread (←)"
             onClick={() => turnPage(-1)}
           >
             ‹
           </button>
           <span>
-            {currentInsert
-              ? currentInsert.title
-              : view.mode === "month"
-                ? `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
-                : "Your weekly pages"}
+            {mobile ? (
+              <>
+                <span
+                  className="mobile-page-title"
+                  title={
+                    currentInsert
+                      ? currentInsert.title
+                      : view.mode === "month"
+                        ? `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
+                        : "Weekly"
+                  }
+                >
+                  {currentInsert
+                    ? currentInsert.title
+                    : view.mode === "month"
+                      ? `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
+                      : "Weekly"}
+                </span>
+                <b className="mobile-page-number"> · {mobileSide + 1}/2</b>
+              </>
+            ) : currentInsert ? (
+              currentInsert.title
+            ) : view.mode === "month" ? (
+              `${MONTHS[parseDate(view.date).getUTCMonth()]} ${year}`
+            ) : (
+              "Your weekly pages"
+            )}
             <small>
               {currentInsert
                 ? `${currentInsert.template} · custom spread`
@@ -1660,7 +1803,7 @@ function App() {
           </span>
           <button
             disabled={locked}
-            aria-label="Next spread"
+            aria-label={mobile ? "Next page" : "Next spread"}
             title="Next spread (→)"
             onClick={() => turnPage(1)}
           >
@@ -1668,6 +1811,9 @@ function App() {
           </button>
         </div>
         <SpreadViewport
+          mobile={mobile}
+          fitPage={fitPage}
+          pageKey={mobile ? ids[mobileSide] : "book"}
           locked={locked}
           hand={hand || spacePan}
           zoom={zoom}
@@ -1752,155 +1898,164 @@ function App() {
             }}
           >
             <div className="paper-stack" />
-            {ids.map((id, side) => (
-              <div className={"page page-" + side} key={id}>
-                <div className="page-content">
-                  <Template
-                    plannerName={plannerName}
-                    showHolidays={settings.showHolidays !== false}
-                    view={view}
-                    insert={currentInsert}
-                    side={side}
-                    onWeek={(date) => navigate({ mode: "week", date })}
-                  />
-                  <StampLayer
-                    library={settings.stamps ?? []}
-                    placements={pages[id]?.stamps ?? []}
-                    active={
-                      !pinching &&
-                      !hand &&
-                      !spacePan &&
-                      !help &&
-                      !operation &&
-                      !turn &&
-                      (tool === "stamp" || tool === "select")
-                    }
-                    placing={tool === "stamp"}
-                    chosen={
-                      settings.stamps?.find(
-                        (s) => s.id === selectedStamp && !s.hidden,
-                      )?.id ??
-                      settings.stamps?.find((s) => !s.hidden)?.id ??
-                      null
-                    }
-                    reset={selectionReset}
-                    onChange={(stamps: StampPlacement[]) =>
-                      changePage(
-                        id,
-                        pagesRef.current[id]?.strokes ?? [],
-                        true,
-                        pagesRef.current[id]?.textBlocks,
-                        stamps,
-                      )
-                    }
-                  />
-                  <TextLayer
-                    blocks={pages[id]?.textBlocks ?? []}
-                    active={
-                      !pinching &&
-                      !hand &&
-                      !spacePan &&
-                      !help &&
-                      !operation &&
-                      !turn &&
-                      (tool === "text" || tool === "select")
-                    }
-                    colorRevision={colorRevision}
-                    placing={tool === "text"}
-                    defaultFontSize={textFontSize}
-                    color={color}
-                    reset={selectionReset}
-                    onChange={(textBlocks) =>
-                      changePage(
-                        id,
-                        pagesRef.current[id]?.strokes ?? [],
-                        true,
-                        textBlocks,
-                      )
-                    }
-                  />
-                  <Ink
-                    selectionReset={selectionReset}
-                    fingerWriting={fingerWriting}
-                    strokes={pages[id]?.strokes ?? []}
-                    color={color}
-                    width={width}
-                    tool={tool === "text" || tool === "stamp" ? "browse" : tool}
-                    eraser={tool === "eraser"}
-                    enabled={
-                      !pinching &&
-                      !hand &&
-                      !spacePan &&
-                      !help &&
-                      tool !== "browse" &&
-                      tool !== "text" &&
-                      tool !== "stamp" &&
-                      !operation &&
-                      !turn
-                    }
-                    onBusy={(value) => {
-                      if (value) gesture.current = null;
-                      if (value || busyRef.current)
-                        penUntil.current = performance.now() + 700;
-                      busyRef.current = value;
-                      setBusy(value);
-                    }}
-                    onChange={(strokes) => {
-                      changePage(id, strokes);
-                    }}
-                  />
+            {ids.map((id, side) =>
+              mobile && side !== mobileSide ? null : (
+                <div className={"page page-" + side} key={id}>
+                  <div className="page-content">
+                    <Template
+                      plannerName={plannerName}
+                      showHolidays={settings.showHolidays !== false}
+                      view={view}
+                      insert={currentInsert}
+                      side={side}
+                      onWeek={(date) => navigate({ mode: "week", date })}
+                    />
+                    <StampLayer
+                      library={settings.stamps ?? []}
+                      placements={pages[id]?.stamps ?? []}
+                      active={
+                        !pinching &&
+                        !hand &&
+                        !spacePan &&
+                        !help &&
+                        !operation &&
+                        !turn &&
+                        (tool === "stamp" || tool === "select")
+                      }
+                      placing={tool === "stamp"}
+                      chosen={
+                        settings.stamps?.find(
+                          (s) => s.id === selectedStamp && !s.hidden,
+                        )?.id ??
+                        settings.stamps?.find((s) => !s.hidden)?.id ??
+                        null
+                      }
+                      reset={selectionReset}
+                      onChange={(stamps: StampPlacement[]) =>
+                        changePage(
+                          id,
+                          pagesRef.current[id]?.strokes ?? [],
+                          true,
+                          pagesRef.current[id]?.textBlocks,
+                          stamps,
+                        )
+                      }
+                    />
+                    <TextLayer
+                      blocks={pages[id]?.textBlocks ?? []}
+                      active={
+                        !pinching &&
+                        !hand &&
+                        !spacePan &&
+                        !help &&
+                        !operation &&
+                        !turn &&
+                        (tool === "text" || tool === "select")
+                      }
+                      colorRevision={colorRevision}
+                      placing={tool === "text"}
+                      defaultFontSize={textFontSize}
+                      color={color}
+                      reset={selectionReset}
+                      onChange={(textBlocks) =>
+                        changePage(
+                          id,
+                          pagesRef.current[id]?.strokes ?? [],
+                          true,
+                          textBlocks,
+                        )
+                      }
+                    />
+                    <Ink
+                      selectionReset={selectionReset}
+                      fingerWriting={fingerWriting}
+                      strokes={pages[id]?.strokes ?? []}
+                      color={color}
+                      width={width}
+                      tool={
+                        tool === "text" || tool === "stamp" ? "browse" : tool
+                      }
+                      eraser={tool === "eraser"}
+                      enabled={
+                        !pinching &&
+                        !hand &&
+                        !spacePan &&
+                        !help &&
+                        tool !== "browse" &&
+                        tool !== "text" &&
+                        tool !== "stamp" &&
+                        !operation &&
+                        !turn
+                      }
+                      onBusy={(value) => {
+                        if (value) gesture.current = null;
+                        if (value || busyRef.current)
+                          penUntil.current = performance.now() + 700;
+                        busyRef.current = value;
+                        setBusy(value);
+                      }}
+                      onChange={(strokes) => {
+                        changePage(id, strokes);
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
             {turn && (
               <>
                 <div className="turn-destination" aria-hidden="true" inert>
-                  {pageIds(turn.next).map((id, side) => (
-                    <div className={"page page-" + side} key={id}>
-                      <div className="page-content">
-                        <Template
-                          plannerName={plannerName}
-                          showHolidays={settings.showHolidays !== false}
-                          view={turn.next}
-                          insert={settings.inserts?.find(
-                            (i) => i.id === turn.next.insert,
-                          )}
-                          side={side}
-                          onWeek={() => {}}
-                        />
-                        <StampLayer
-                          library={settings.stamps ?? []}
-                          placements={pages[id]?.stamps ?? []}
-                          active={false}
-                          placing={false}
-                          chosen={null}
-                          onChange={() => {}}
-                        />
-                        <TextLayer
-                          blocks={pages[id]?.textBlocks ?? []}
-                          active={false}
-                          placing={false}
-                          color={color}
-                          onChange={() => {}}
-                        />
-                        <Ink
-                          strokes={pages[id]?.strokes ?? []}
-                          color={color}
-                          width={width}
-                          eraser={false}
-                          enabled={false}
-                          fingerWriting={false}
-                          onBusy={() => {}}
-                          onChange={() => {}}
-                        />
+                  {pageIds(turn.next).map((id, side) =>
+                    turn.side !== undefined && side !== turn.side ? null : (
+                      <div className={"page page-" + side} key={id}>
+                        <div className="page-content">
+                          <Template
+                            plannerName={plannerName}
+                            showHolidays={settings.showHolidays !== false}
+                            view={turn.next}
+                            insert={settings.inserts?.find(
+                              (i) => i.id === turn.next.insert,
+                            )}
+                            side={side}
+                            onWeek={() => {}}
+                          />
+                          <StampLayer
+                            library={settings.stamps ?? []}
+                            placements={pages[id]?.stamps ?? []}
+                            active={false}
+                            placing={false}
+                            chosen={null}
+                            onChange={() => {}}
+                          />
+                          <TextLayer
+                            blocks={pages[id]?.textBlocks ?? []}
+                            active={false}
+                            placing={false}
+                            color={color}
+                            onChange={() => {}}
+                          />
+                          <Ink
+                            strokes={pages[id]?.strokes ?? []}
+                            color={color}
+                            width={width}
+                            eraser={false}
+                            enabled={false}
+                            fingerWriting={false}
+                            onBusy={() => {}}
+                            onChange={() => {}}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
                 <PageTurn
                   direction={turn.direction}
+                  singlePage={turn.side !== undefined}
                   onDone={() => {
-                    commitView(turn.next);
+                    if (turn.next !== settingsRef.current.view)
+                      commitView(turn.next);
+                    if (turn.side !== undefined) setMobileSide(turn.side);
                     turning.current = false;
                     setTurn(null);
                   }}
@@ -2240,11 +2395,13 @@ function App() {
         </div>
       )}
       <div className="bottom">
-        <div className="status-row">
-          <span role="status">
-            {status} · {online ? "Online" : "Offline"}
-          </span>
-        </div>
+        {!mobile && (
+          <div className="status-row">
+            <span role="status">
+              {status} · {online ? "Online" : "Offline"}
+            </span>
+          </div>
+        )}
         {error && (
           <div className="error" role="alert">
             {error}{" "}
