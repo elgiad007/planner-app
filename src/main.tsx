@@ -2308,22 +2308,6 @@ function App() {
               software comes with no warranty.
             </p>
             <p>
-              <a href="/LICENSE.txt" target="_blank" rel="noopener noreferrer">
-                Read the license
-              </a>{" "}
-              ·{" "}
-              <a href="/source.tar.gz" download>
-                Download this version’s source
-              </a>{" "}
-              ·{" "}
-              <a
-                href="/third-party-notices.txt"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Third-party notices
-              </a>{" "}
-              ·{" "}
               <a
                 href="https://github.com/elgiad007/planner-app"
                 target="_blank"

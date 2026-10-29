@@ -11,7 +11,7 @@ software is provided without warranty; see the license for full terms.
 
 Third-party dependencies retain their own licenses. Production builds include
 `third-party-notices.txt`, the GPL text, and a `source.tar.gz` archive containing
-the matching project source and build instructions. These are linked from Help.
+the matching project source and build instructions. Help links to the GitHub project.
 The software license does not apply to your personal planner entries or exports.
 
 My Pastel Planner is a digital DayTimer-style binder for planning your schedule, handwriting notes, making lists, and keeping ideas beside your calendar. It combines monthly and weekly calendars with customizable two-page spreads in a pastel paper-planner layout. It is designed around iPad and Apple Pencil use, with mouse, touch, and keyboard controls for other devices.
