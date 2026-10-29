@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export function SpreadViewport({
   children,
+  mobile = false,
+  fitPage = false,
+  pageKey,
   locked,
   hand,
   zoom,
@@ -10,6 +13,9 @@ export function SpreadViewport({
   onPinch,
 }: {
   children: ReactNode;
+  mobile?: boolean;
+  fitPage?: boolean;
+  pageKey?: string;
   locked: boolean;
   hand: boolean;
   zoom: number;
@@ -98,6 +104,17 @@ export function SpreadViewport({
       const compact = window.innerWidth <= 700;
       const padding = compact ? 12 : 24;
       const gap = compact ? 12 : 28;
+      if (mobile) {
+        setFitWidth(
+          Math.max(
+            1,
+            fitPage
+              ? Math.min(element.clientWidth, element.clientHeight * 0.75)
+              : element.clientWidth,
+          ),
+        );
+        return;
+      }
       setFitWidth(
         Math.max(
           1,
@@ -112,7 +129,11 @@ export function SpreadViewport({
     observer.observe(element);
     resize();
     return () => observer.disconnect();
-  }, []);
+  }, [mobile, fitPage]);
+  useLayoutEffect(() => {
+    viewport.current!.scrollTop = 0;
+    viewport.current!.scrollLeft = 0;
+  }, [pageKey, mobile]);
   useLayoutEffect(() => {
     const element = viewport.current!;
     const ratio = zoom / previousZoom.current;
@@ -138,7 +159,9 @@ export function SpreadViewport({
         className={`book-wrap zoom-viewport${hand ? " hand-mode" : ""}`}
         tabIndex={0}
         role="region"
-        aria-label="Scrollable planner spread"
+        aria-label={
+          mobile ? "Scrollable planner page" : "Scrollable planner spread"
+        }
         onClickCapture={(e) => {
           if (!onSurface(e.target)) return;
           if (dismissingPanel.current) {
@@ -311,7 +334,11 @@ export function SpreadViewport({
       >
         <div
           className="zoom-stage"
-          style={{ width: fitWidth ? (fitWidth * zoom) / 100 + 60 : "100%" }}
+          style={{
+            width: fitWidth
+              ? (fitWidth * zoom) / 100 + (mobile ? 0 : 60)
+              : "100%",
+          }}
         >
           <div
             className="zoom-book-size"

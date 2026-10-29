@@ -5,9 +5,11 @@ import { PageFlip } from "page-flip";
 // explicitly because cloneNode does not copy a canvas bitmap.
 export function PageTurn({
   direction,
+  singlePage = false,
   onDone,
 }: {
   direction: number;
+  singlePage?: boolean;
   onDone: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -23,7 +25,9 @@ export function PageTurn({
       book.querySelectorAll<HTMLElement>(".turn-destination > .page"),
     );
     const bounds = current[0].getBoundingClientRect();
-    const gap = current[1].getBoundingClientRect().left - bounds.right;
+    const gap = singlePage
+      ? 0
+      : current[1].getBoundingClientRect().left - bounds.right;
     let finished = false;
     const finish = () => {
       if (!finished) {
@@ -35,9 +39,9 @@ export function PageTurn({
       width: bounds.width + gap / 2,
       height: bounds.height,
       size: "fixed",
-      usePortrait: false,
+      usePortrait: singlePage,
       autoSize: false,
-      startPage: direction > 0 ? 0 : 2,
+      startPage: direction > 0 ? 0 : singlePage ? 1 : 2,
       flippingTime: 650,
       useMouseEvents: false,
       showPageCorners: false,
@@ -90,11 +94,13 @@ export function PageTurn({
     flip.loadFromHTML(sheets);
     // Keep rings above the static (1) and revealed (3) pages, but below the
     // moving sheet (5) and its shadows (10), inside the engine's stacking context.
-    const rings = book.querySelector<HTMLElement>(":scope > .rings")!;
-    const turnRings = rings.cloneNode(true) as HTMLElement;
-    turnRings.classList.add("turn-rings");
-    turnRings.style.setProperty("--turn-inset", getComputedStyle(root).top);
-    root.querySelector(".stf__block")!.append(turnRings);
+    if (!singlePage) {
+      const rings = book.querySelector<HTMLElement>(":scope > .rings")!;
+      const turnRings = rings.cloneNode(true) as HTMLElement;
+      turnRings.classList.add("turn-rings");
+      turnRings.style.setProperty("--turn-inset", getComputedStyle(root).top);
+      root.querySelector(".stf__block")!.append(turnRings);
+    }
     const frame = requestAnimationFrame(() =>
       direction > 0 ? flip.flipNext("bottom") : flip.flipPrev("bottom"),
     );
